@@ -29,6 +29,7 @@ An archive is one commit. It moves the folder and repoints every path to the fol
    - Replace the text of the `**Last updated:**` line with today's date and one sentence that names the archived tasks. Do not keep the old text.
 3. If `01-task.md` has a `**Source:**` line that names an item in [_tasks/_TECH_DEBT/](../../../_tasks/_TECH_DEBT/) which still exists, update that item as [_tasks/CLAUDE.md](../../../_tasks/CLAUDE.md) says ("Update tech debt on completion").
 4. Run `python3 .claude/skills/move-to-done/archive.py --check`. Expect `no new broken links`.
+   - Run `grep -l "Návrh (task NN)" docs/mockups/*.html` with the task number. It must find nothing. If it finds a file, use the `mockup` skill: "after the merge" for a built task, "A dropped feature" for an abandoned one.
 5. Commit. Stage only the files from step 1, `_tasks/index.md` and a tech-debt file from step 3. Use this message:
    ```
    docs: archive task 85          (one task)

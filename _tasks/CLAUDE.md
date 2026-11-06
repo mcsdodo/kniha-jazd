@@ -14,6 +14,8 @@ It chains the right skills in the right order:
 ```
 superpowers:brainstorming  →  01-task.md
         ↓
+mockup (UI tasks only)     →  01-task.md "## Design"
+        ↓
 superpowers:writing-plans  →  02-plan.md
         ↓
         commit

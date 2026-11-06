@@ -1,0 +1,697 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Kniha jázd PC: Mapa</title>
+<style>
+/* ===== Shared PC mockup CSS (copy this block to every PC mockup) =====
+   The colour variables copy src/lib/theme.css. The frames stack vertically. */
+:root {
+  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, "Open Sans", "Helvetica Neue", sans-serif;
+  --page-bg: #e9edf0; --page-ink: #2c3e50; --page-muted: #6b7a80;
+  --bg-body: #f5f5f5; --bg-surface: #ffffff; --bg-surface-alt: #fafafa; --bg-header: #2c3e50;
+  --text-primary: #2c3e50; --text-secondary: #7f8c8d; --text-muted: #95a5a6;
+  --text-on-header: #ffffff; --text-on-header-muted: rgba(255,255,255,0.7);
+  --border-default: #e0e0e0; --border-input: #d5dbdb; --shadow-default: rgba(0,0,0,0.1);
+  --accent-primary: #3498db; --accent-success: #27ae60; --accent-success-bg: #e8f8e8;
+  --accent-warning: #d39e00; --accent-danger: #c0392b; --accent-danger-bg: #fee;
+  --input-bg: #ffffff; --btn-secondary-bg: #ecf0f1;
+  --toast-success-bg: #d4edda; --toast-success-color: #155724; --toast-success-border: #c3e6cb;
+  --toast-error-bg: #f8d7da; --toast-error-color: #721c24; --toast-error-border: #f5c6cb;
+  --toast-info-bg: #d1ecf1; --toast-info-color: #0c5460; --toast-info-border: #bee5eb;
+  --warning-bg: #fff3cd; --warning-color: #856404; --warning-border: #ffc107;
+  --badge-danger-bg: #e74c3c; --overlay-bg: rgba(0,0,0,0.5);
+  --accent-primary-light-bg: #ebf5fb; --editing-row-bg: #e3f2fd; --accent-warning-dark: #e67e22;
+  --consumption-warn-bg: #fff3e0;
+  --badge-ice-bg: #e3f2fd; --badge-ice-color: #1565c0; --badge-bev-bg: #e8f5e9; --badge-bev-color: #2e7d32;
+  --badge-phev-bg: #fff3e0; --badge-phev-color: #e65100;
+  --prop: #e67e22; --prop-bg: #fdf0e1;
+  color-scheme: light;
+}
+:root[data-theme="dark"] {
+  --page-bg: #0d0f10; --page-ink: #e0e0e0; --page-muted: #9aa4a8;
+  --bg-body: #121212; --bg-surface: #1e1e1e; --bg-surface-alt: #252525; --bg-header: #1e1e1e;
+  --text-primary: #e0e0e0; --text-secondary: #a0a0a0; --text-muted: #707070;
+  --text-on-header: #e0e0e0; --text-on-header-muted: rgba(255,255,255,0.6);
+  --border-default: #333333; --border-input: #404040; --shadow-default: rgba(0,0,0,0.3);
+  --accent-primary: #5dade2; --accent-success: #58d68d; --accent-success-bg: #1e3d1e;
+  --accent-warning: #f4d03f; --accent-danger: #ec7063; --accent-danger-bg: #3d2020;
+  --input-bg: #2a2a2a; --btn-secondary-bg: #333333;
+  --toast-success-bg: #1e3a1e; --toast-success-color: #58d68d; --toast-success-border: #2a4a2a;
+  --toast-error-bg: #3d2020; --toast-error-color: #ec7063; --toast-error-border: #5a2a2a;
+  --toast-info-bg: #1a3a4a; --toast-info-color: #5dade2; --toast-info-border: #254a5a;
+  --warning-bg: #3d3520; --warning-color: #f4d03f; --warning-border: #8a7020;
+  --accent-primary-light-bg: #1a2a3a; --editing-row-bg: #1a2a3a; --consumption-warn-bg: #3a2a1a;
+  --badge-ice-bg: #1a2a3a; --badge-ice-color: #64b5f6; --badge-bev-bg: #1e3a1e; --badge-bev-color: #81c784;
+  --badge-phev-bg: #3a2a1a; --badge-phev-color: #ffb74d;
+  --prop: #f0a04a; --prop-bg: #3a2a18;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--page-bg); color: var(--page-ink); font-family: var(--font-sans); font-size: 15px; line-height: 1.45; }
+code { font-size: 0.9em; }
+a { color: var(--accent-primary); }
+header.page { padding: 24px 24px 8px; max-width: 1240px; margin: 0 auto; }
+header.page h1 { margin: 0 0 4px; font-size: 1.5rem; text-wrap: balance; }
+header.page p { margin: 4px 0; color: var(--page-muted); max-width: 80ch; }
+.pagenav { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 0.9rem; margin-top: 8px; align-items: center; }
+.pagenav .here { font-weight: 700; color: var(--page-ink); }
+.themebtn { margin-left: auto; font: inherit; font-size: 0.85rem; border: 1px solid var(--page-muted); background: transparent; color: var(--page-ink); border-radius: 6px; padding: 3px 10px; cursor: pointer; }
+.frames { display: flex; flex-direction: column; gap: 36px; padding: 16px 24px 48px; max-width: 1240px; margin: 0 auto; }
+.frame { display: flex; flex-direction: column; gap: 10px; }
+.frame > h2 { margin: 0; font-size: 0.85rem; letter-spacing: 0.06em; text-transform: uppercase; color: var(--page-muted); }
+.window { width: 100%; max-width: 1180px; border: 1px solid var(--border-default); border-radius: 8px; overflow: hidden; background: var(--bg-body); color: var(--text-primary); box-shadow: 0 6px 18px rgba(0,0,0,0.10); position: relative; font-size: 14px; }
+.window .content { padding: 16px 20px; display: flex; flex-direction: column; gap: 14px; }
+.ann { font-size: 0.9rem; color: var(--page-muted); margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 4px; max-width: 95ch; }
+.ann li::marker { color: var(--accent-primary); }
+.ann b, .ann code { color: var(--page-ink); }
+.ann li.prop::marker { color: var(--prop); }
+.ann li.prop b { color: var(--prop); }
+/* Proposal mark: a frame or an element changed by a task, not built yet */
+.open { border: 2px dashed var(--prop); border-radius: 8px; padding: 6px 8px; }
+.open > .tag, .tag.prop { display: inline-block; font-size: 0.72rem; font-weight: 700; color: var(--prop); background: var(--prop-bg); text-transform: uppercase; letter-spacing: 0.05em; padding: 1px 6px; border-radius: 4px; }
+/* App header */
+.apphdr { background: var(--bg-header); color: var(--text-on-header); padding: 10px 20px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; box-shadow: 0 2px 4px var(--shadow-default); }
+.apphdr .left { display: flex; align-items: center; gap: 8px 24px; flex-wrap: wrap; }
+.apphdr .title { font-size: 1.3rem; font-weight: 600; padding: 4px 12px; border-radius: 4px; }
+.apphdr nav { display: flex; gap: 4px; flex-wrap: wrap; }
+.apphdr nav span { color: var(--text-on-header-muted); padding: 6px 12px; border-radius: 4px; font-weight: 500; white-space: nowrap; }
+.apphdr .on { background: rgba(255,255,255,0.2); color: var(--text-on-header) !important; }
+.apphdr .right { display: flex; gap: 14px; align-items: center; font-size: 0.9rem; }
+.apphdr .sel { background: var(--input-bg); color: var(--text-primary); border-radius: 4px; padding: 4px 8px; margin-left: 6px; border: 1px solid var(--border-input); }
+.badge-count { display: inline-block; min-width: 18px; padding: 0 5px; margin-left: 6px; border-radius: 9px; background: var(--badge-danger-bg); color: #fff; font-size: 0.72rem; font-weight: 700; text-align: center; line-height: 18px; }
+.banner-ro { display: flex; gap: 10px; align-items: center; padding: 10px 16px; background: var(--warning-bg); border-bottom: 1px solid var(--warning-border); color: var(--warning-color); font-weight: 500; }
+/* Generic app parts */
+.card { background: var(--bg-surface); border-radius: 8px; padding: 16px; box-shadow: 0 1px 3px var(--shadow-default); display: flex; flex-direction: column; gap: 12px; }
+.card h3 { margin: 0; font-size: 1.15rem; }
+.row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.spread { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; }
+.btn { display: inline-block; padding: 7px 14px; border-radius: 4px; font-weight: 500; font-size: 0.9rem; background: var(--btn-secondary-bg); color: var(--text-primary); border: 1px solid transparent; white-space: nowrap; }
+.btn.primary { background: var(--accent-primary); color: #fff; }
+.btn.success { background: var(--accent-success); color: #fff; }
+.btn.danger { background: var(--accent-danger); color: #fff; }
+.btn.ghost { background: transparent; border-color: var(--border-input); }
+.btn.dis { opacity: 0.45; }
+.btn.sm { padding: 4px 10px; font-size: 0.82rem; }
+.input { display: inline-flex; align-items: center; justify-content: space-between; gap: 6px; border: 1px solid var(--border-input); border-radius: 4px; padding: 5px 8px; background: var(--input-bg); min-width: 60px; font-variant-numeric: tabular-nums; }
+.input.focus { border-color: var(--accent-primary); box-shadow: 0 0 0 2px rgba(52,152,219,0.15); }
+.input.bad { border-color: var(--accent-danger); }
+.hint { color: var(--text-secondary); font-size: 0.85rem; }
+.muted { color: var(--text-secondary); }
+.warn-text { color: var(--accent-warning-dark); font-weight: 600; }
+.err-text { color: var(--accent-danger); }
+.ok-text { color: var(--accent-success); }
+.pill { display: inline-block; padding: 1px 8px; border-radius: 999px; font-size: 0.78rem; font-weight: 600; white-space: nowrap; }
+.pill.ok { background: var(--accent-success-bg); color: var(--accent-success); }
+.pill.bad { background: var(--accent-danger-bg); color: var(--accent-danger); }
+.pill.warn { background: var(--warning-bg); color: var(--warning-color); }
+.pill.info { background: var(--accent-primary-light-bg); color: var(--accent-primary); }
+.chk { display: inline-flex; gap: 6px; align-items: center; }
+.box { display: inline-block; width: 14px; height: 14px; border: 1px solid var(--border-input); border-radius: 3px; background: var(--input-bg); vertical-align: middle; position: relative; }
+.box.on { background: var(--accent-primary); border-color: var(--accent-primary); }
+.box.on::after { content: ""; position: absolute; left: 4px; top: 1px; width: 4px; height: 8px; border: solid #fff; border-width: 0 2px 2px 0; transform: rotate(45deg); }
+.seg { display: inline-flex; border: 1px solid var(--border-input); border-radius: 4px; overflow: hidden; font-size: 0.82rem; }
+.seg span { padding: 4px 10px; }
+.seg span.on { background: var(--accent-primary); color: #fff; }
+.toast { position: absolute; top: 12px; right: 12px; z-index: 5; display: flex; gap: 10px; align-items: center; padding: 10px 14px; border-radius: 6px; border: 1px solid; font-size: 0.9rem; box-shadow: 0 4px 12px var(--shadow-default); }
+.toast.ok { background: var(--toast-success-bg); color: var(--toast-success-color); border-color: var(--toast-success-border); }
+.toast.err { background: var(--toast-error-bg); color: var(--toast-error-color); border-color: var(--toast-error-border); }
+.toast.info { background: var(--toast-info-bg); color: var(--toast-info-color); border-color: var(--toast-info-border); }
+.toast .act { font-weight: 700; text-decoration: underline; }
+.dim { position: relative; }
+.dim::after { content: ""; position: absolute; inset: 0; background: var(--overlay-bg); z-index: 2; }
+.modal { position: absolute; left: 50%; top: 40px; transform: translateX(-50%); z-index: 3; background: var(--bg-surface); color: var(--text-primary); border-radius: 8px; box-shadow: 0 10px 30px rgba(0,0,0,0.3); padding: 18px 20px; display: flex; flex-direction: column; gap: 12px; width: 520px; max-width: 92%; }
+.modal h4 { margin: 0; font-size: 1.15rem; display: flex; justify-content: space-between; }
+.modal .foot { display: flex; justify-content: flex-end; gap: 8px; margin-top: 4px; }
+.mapbox { height: 220px; border-radius: 6px; border: 1px solid var(--border-default); position: relative; overflow: hidden; background: linear-gradient(135deg, color-mix(in srgb, var(--accent-success) 10%, var(--bg-surface)), color-mix(in srgb, var(--accent-primary) 10%, var(--bg-surface))); }
+.mapbox svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+.tbl { width: 100%; border-collapse: collapse; font-size: 0.85rem; font-variant-numeric: tabular-nums; }
+.tbl th, .tbl td { padding: 5px 6px; text-align: left; border-bottom: 1px solid var(--border-default); white-space: nowrap; }
+.tbl th { background: var(--bg-surface-alt); font-weight: 600; color: var(--text-secondary); }
+.tbl td.n, .tbl th.n { text-align: right; }
+.open-points { border: 1px solid var(--border-default); border-radius: 8px; padding: 12px 16px; background: var(--bg-surface); color: var(--text-primary); }
+.open-points h2 { margin: 0 0 6px; font-size: 1rem; }
+/* ===== End of the shared CSS ===== */
+
+/* Page-specific: route map (src/routes/mapa/+page.svelte) */
+:root { --btn-active-primary-bg: #3498db; --btn-active-primary-color: #ffffff; --btn-primary-light-bg: #d4edda; --btn-primary-light-color: #155724; }
+:root[data-theme="dark"] { --btn-active-primary-bg: #1a3a5c; --btn-active-primary-color: #5dade2; --btn-primary-light-bg: #1e3a1e; --btn-primary-light-color: #58d68d; }
+.map-page { width: 100%; max-width: 1000px; margin: 0 auto; display: flex; flex-direction: column; gap: 12px; }
+.mhead { display: flex; align-items: baseline; gap: 16px; flex-wrap: wrap; }
+.mhead h1 { margin: 0; font-size: 1.7rem; }
+.toolbar { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.tbtn { display: inline-block; padding: 10px 20px; border-radius: 4px; font-weight: 500; background: var(--btn-active-primary-bg); color: var(--btn-active-primary-color); white-space: nowrap; }
+.tbtn.dis { opacity: 0.6; }
+.tbtn.dangerlite { background: var(--accent-danger-bg); color: var(--accent-danger); }
+.tl { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+.tl .input { min-width: 0; }
+.route-info { display: flex; gap: 24px; flex-wrap: wrap; }
+.ri { display: inline-flex; align-items: baseline; gap: 6px; }
+.lbl { color: var(--text-secondary); font-size: 0.875rem; }
+.val { font-weight: 500; }
+.val.off { color: var(--accent-warning-dark); font-weight: 600; }
+.altlist { display: flex; flex-direction: column; gap: 6px; margin-top: 6px; }
+.alt { display: flex; gap: 16px; align-items: baseline; padding: 8px 12px; border-radius: 4px; font-size: 0.875rem; background: var(--btn-secondary-bg); border: 1px solid var(--border-default); }
+.alt.active { background: var(--btn-active-primary-bg); color: var(--btn-active-primary-color); border-color: var(--btn-active-primary-bg); }
+.alt .off { color: var(--accent-warning-dark); font-weight: 600; }
+.alt.active .off { color: inherit; text-decoration: underline; text-decoration-thickness: 2px; }
+.legs { display: flex; gap: 24px; flex-wrap: wrap; }
+.legs .leg { flex: 1 1 14rem; min-width: 0; }
+.swatch { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 4px; vertical-align: middle; }
+.mhint { margin: 0; color: var(--text-secondary); font-size: 0.875rem; font-style: italic; }
+.stops { margin: 0; font-size: 0.875rem; }
+.ebox, .snotice { display: flex; align-items: center; gap: 16px; padding: 12px 16px; border-radius: 4px; }
+.ebox { background: var(--toast-error-bg); color: var(--toast-error-color); }
+.snotice { background: var(--toast-success-bg); color: var(--toast-success-color); }
+.bsmall { display: inline-block; padding: 6px 14px; border-radius: 4px; font-size: 0.875rem; background: var(--btn-secondary-bg); color: var(--text-primary); white-space: nowrap; }
+.bsmall.dangerlite { background: var(--accent-danger-bg); color: var(--accent-danger); }
+.status { margin: 0; color: var(--text-secondary); font-style: italic; }
+.mapbox.tall { height: 320px; }
+.mapzoom { position: absolute; top: 10px; left: 10px; z-index: 1; display: flex; flex-direction: column; background: var(--bg-surface); border: 2px solid rgba(0,0,0,0.2); border-radius: 4px; font-weight: 700; font-size: 16px; line-height: 26px; text-align: center; width: 30px; }
+.mapzoom span + span { border-top: 1px solid var(--border-default); }
+.mapattr { position: absolute; right: 0; bottom: 0; z-index: 1; font-size: 11px; padding: 0 5px; background: color-mix(in srgb, var(--bg-surface) 80%, transparent); color: var(--text-primary); }
+.bgroads path { fill: none; stroke: color-mix(in srgb, var(--text-muted) 35%, transparent); stroke-width: 3; }
+.bgroads path.big { stroke-width: 5; }
+.river { fill: none; stroke: color-mix(in srgb, var(--accent-primary) 30%, transparent); stroke-width: 7; }
+.rline { fill: none; stroke-linecap: round; stroke-linejoin: round; }
+.pin path { stroke: var(--bg-surface); stroke-width: 2; }
+.pin.a path { fill: var(--accent-success); }
+.pin.b path { fill: var(--accent-danger); }
+.pin text { fill: #fff; font: 700 12px sans-serif; text-anchor: middle; }
+.via circle { fill: var(--accent-primary); stroke: var(--bg-surface); stroke-width: 2; }
+.via text { fill: var(--bg-surface); font: 600 10px sans-serif; text-anchor: middle; }
+.ghost { fill: var(--accent-primary); stroke: var(--bg-surface); stroke-width: 2; }
+.place-pin { fill: var(--accent-primary); stroke: var(--bg-surface); stroke-width: 3; }
+.cursor { fill: var(--text-primary); stroke: var(--bg-surface); stroke-width: 1; }
+.tip { font-size: 11px; }
+.tipbox { fill: var(--bg-surface); stroke: var(--border-input); }
+.tiptext { fill: var(--text-primary); font: 12px sans-serif; }
+.cand { padding: 8px 12px; border: 1px solid var(--border-default); border-radius: 4px; background: var(--bg-surface-alt); font-size: 0.875rem; }
+.cand.sel { border-color: var(--accent-primary); background: var(--btn-primary-light-bg); color: var(--btn-primary-light-color); }
+.wbm { font-size: 0.875rem; display: flex; flex-direction: column; gap: 4px; }
+.wbm p { margin: 0; }
+.wbm .crosses { color: var(--accent-warning-dark); font-weight: 600; }
+.modal p { margin: 0; }
+.modal ul.bd { margin: 0; padding-left: 20px; }
+</style>
+</head>
+<body>
+<header class="page">
+  <h1>Kniha jázd on the PC: Mapa (current state)</h1>
+  <p>The route map of one trip at <code>/mapa?trip=&lt;id&gt;</code>, opened from the map pin of the trip grid in a new tab, as it works on <code>main</code>. The example data is invented. The UI text is Slovak, as in the app. The notes under each frame say what the screen does.</p>
+  <p>The source is <code>docs/mockups/mapa.html</code> in the repo. Its git history shows when the page changed.</p>
+  <p>An orange dashed box with the tag "Návrh (task NN)" marks a proposal that is not built yet. This page has no open proposal.</p>
+  <div class="pagenav" id="pagenav">
+    <a href="https://claude.ai/artifact/PCbcTRe6EybiezMCqH8rm2" data-file="jazdy.html">Jazdy</a><a href="https://claude.ai/artifact/Nvtcv8rofbFtVG4BNbAoMr" data-file="doklady.html">Doklady</a><a href="https://claude.ai/artifact/RgyA56LvfFjRHpgMcYG3ku" data-file="fuelio.html">Fuelio</a>
+    <span class="here">Mapa</span>
+    <a href="https://claude.ai/artifact/T2jiZ3ZLGs9s1F89UZP9eE" data-file="miesta.html">Miesta</a><a href="https://claude.ai/artifact/F5fCz7wgrunXAyQ5rRw1AJ" data-file="nastavenia.html">Nastavenia</a><a href="https://claude.ai/artifact/TyYTKii3cU4ryvN98giUGW" data-file="mobil.html">Mobil</a>
+    <button class="themebtn" type="button" id="themebtn">Dark / light</button>
+  </div>
+</header>
+
+<div class="frames">
+
+  <!-- 1. Direct one-way -->
+  <section class="frame">
+    <h2>1. Direct one-way route with alternatives</h2>
+    <div class="window">
+      <div class="apphdr">
+        <div class="left">
+          <span class="title">Kniha Jázd</span>
+          <nav><span>Doklady</span><span>Miesta</span><span>Fuelio</span><span>Nastavenia</span></nav>
+        </div>
+        <div class="right">
+          <span>Vozidlo:<span class="sel">Škoda Octavia (BA123XY) v</span></span>
+          <span>Rok:<span class="sel">2026 v</span></span>
+        </div>
+      </div>
+      <div class="content">
+        <div class="map-page">
+          <div class="mhead"><h1>Mapa trasy</h1><span class="muted">Kancelária → Klient Trnava · 48 km</span></div>
+          <div class="toolbar">
+            <span class="tl">Smerovanie: <span class="input">OSRM (OpenStreetMap) v</span></span>
+            <span class="tbtn">Prepočítať</span>
+            <span class="tl"><span class="box"></span>Cesta tam a späť</span>
+            <span class="tbtn">Uložiť a použiť vzdialenosť</span>
+          </div>
+          <div class="route-info">
+            <span class="ri"><span class="lbl">Cieľová vzdialenosť</span><span class="val">48.0 km</span></span>
+            <span class="ri"><span class="lbl">Skutočná vzdialenosť</span><span class="val">52.4 km</span></span>
+            <span class="ri"><span class="lbl">Odchýlka</span><span class="val off">+9.2 %</span></span>
+          </div>
+          <div>
+            <span class="lbl">Alternatívne trasy</span>
+            <div class="altlist">
+              <span class="alt active"><span>52.4 km</span><span title="Čas jazdy">38 min</span><span class="off">+9.2 %</span></span>
+              <span class="alt"><span>49.1 km</span><span title="Čas jazdy">41 min</span><span>+2.3 %</span></span>
+              <span class="alt"><span>55.0 km</span><span title="Čas jazdy">44 min</span><span class="off">+14.6 %</span></span>
+            </div>
+          </div>
+          <p class="stops"><span class="lbl">Zastávky (2)</span> Kancelária → Klient Trnava</p>
+          <p class="mhint">Potiahnutím čiary pridáte medzizastávku. Kliknutím na zastávku ju odstránite.</p>
+          <div class="mapbox tall">
+            <div class="mapzoom"><span>+</span><span>-</span></div>
+            <svg viewBox="0 0 1000 320" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+              <g class="bgroads"><path class="big" d="M0 250 C200 230 400 262 600 222 S900 182 1000 172"/><path d="M120 0 C150 100 180 200 160 320"/><path d="M700 0 C680 120 720 220 760 320"/><path d="M0 92 C250 112 500 72 1000 102"/><path d="M420 0 C430 120 380 220 400 320"/></g>
+              <path class="river" d="M0 304 C300 284 500 312 1000 262"/>
+              <path class="rline" stroke="#94a3b8" stroke-width="4" opacity="0.6" d="M160 230 C320 300 600 262 840 110"/>
+              <path class="rline" stroke="#94a3b8" stroke-width="4" opacity="0.6" d="M160 230 C260 120 560 62 840 110"/>
+              <path class="rline" stroke="#0066cc" stroke-width="5" opacity="0.85" d="M160 230 C350 200 560 172 840 110"/>
+              <g class="pin a" transform="translate(160,230)"><path d="M0,0 L-9,-15 A11,11 0 1,1 9,-15 Z"/><text y="-17">A</text></g>
+              <g class="pin b" transform="translate(840,110)"><path d="M0,0 L-9,-15 A11,11 0 1,1 9,-15 Z"/><text y="-17">B</text></g>
+              <g class="tip" transform="translate(650,62)"><rect class="tipbox" width="170" height="22" rx="3"/><text class="tiptext" x="8" y="15">Koniec trasy: Klient Trnava</text></g>
+            </svg>
+            <span class="mapattr">Leaflet | © OpenStreetMap contributors</span>
+          </div>
+        </div>
+      </div>
+    </div>
+    <ul class="ann">
+      <li>The map pin of a trip row opens this page in a new tab. The page uses the app header (frame 1 of Jazdy). No nav item is marked: the nav has no "Mapa" link.</li>
+      <li>At load the page reads all trips of the active vehicle (<code>get_trips</code>) and finds the trip by id. Then it reads the saved map (<code>get_trip_route</code>). With no saved map it asks for the mode and the endpoints (<code>start_route_for_trip</code>).</li>
+      <li>The backend picks the mode. The same place in "Odkiaľ" and "Kam" gives a loop (frame 5). Two places give a direct route. The endpoints come from the place book, not from a geocode.</li>
+      <li>The line next to the title comes from the trip: the origin, the destination and the trip km.</li>
+      <li>"Smerovanie:" shows only when the server offers two providers, that is with <code>SYGIC_API_KEY</code> set (<code>get_route_providers</code>). The default is OSRM, also with the key (ADR-053). A change routes a direct trip again at once.</li>
+      <li>A direct route goes to <code>route_direct</code> with the trip km as the target. The backend returns up to 3 alternatives in the order of the routing service (fastest first).</li>
+      <li>"Prepočítať" routes the current point list again. It saves nothing. While a request runs, the button and the status line read "Generujem trasu...".</li>
+      <li>"Cieľová vzdialenosť" is the trip km. "Skutočná vzdialenosť" is the road km of the active line. The backend computes "Odchýlka". It turns orange (not red) when the route is outside the backend tolerance (<code>TOLERANCE</code>).</li>
+      <li>Each alternative button shows the km, the drive time ("Čas jazdy") and the deviation. A click on a button or on a grey line makes it active. This sends no request and the map does not zoom.</li>
+      <li>"Uložiť a použiť vzdialenosť" is enabled for an unsaved proposal, or for a saved map whose km does not match the trip. Frame 7 shows what it writes. "Odstrániť mapu" shows only with a saved map (frame 2).</li>
+      <li>"Zastávky (n)" always lists every point. The edit hint always shows. The A pin (green) is the start, the B pin (red) is the end. Their tooltips are "Začiatok trasy" / "Koniec trasy" with the place name.</li>
+      <li>A drag of a pin routes again once, on release. A drag on the blue line adds a via (frame 4).</li>
+      <li>A saved one-way map that opens again shows no alternatives: the row stores only the chosen line. "Prepočítať" gets them again.</li>
+    </ul>
+  </section>
+
+  <!-- 2. Sygic -->
+  <section class="frame">
+    <h2>2. Sygic route with "avoid paid roads" (saved map)</h2>
+    <div class="window">
+      <div class="content">
+        <div class="map-page">
+          <div class="mhead"><h1>Mapa trasy</h1><span class="muted">Pobočka Bratislava → Hotel · 132 km</span></div>
+          <div class="toolbar">
+            <span class="tl">Smerovanie: <span class="input">Sygic v</span></span>
+            <span class="tbtn">Prepočítať</span>
+            <span class="tl"><span class="box"></span>Cesta tam a späť</span>
+            <span class="tl" title="Trasa sa vyhne úsekom s povinnou diaľničnou známkou alebo mýtom v danej krajine.">Vyhnúť sa spoplatneným cestám:
+              <span class="tl"><span class="box"></span>AT</span>
+              <span class="tl"><span class="box on"></span>CZ</span>
+              <span class="tl"><span class="box"></span>HU</span>
+              <span class="tl"><span class="box"></span>SK</span>
+            </span>
+            <span class="tbtn">Uložiť a použiť vzdialenosť</span>
+            <span class="tbtn dangerlite">Odstrániť mapu</span>
+          </div>
+          <div class="route-info">
+            <span class="ri"><span class="lbl">Cieľová vzdialenosť</span><span class="val">132.0 km</span></span>
+            <span class="ri"><span class="lbl">Skutočná vzdialenosť</span><span class="val">136.8 km</span></span>
+            <span class="ri"><span class="lbl">Odchýlka</span><span class="val">+3.6 %</span></span>
+          </div>
+          <div>
+            <span class="lbl">Alternatívne trasy</span>
+            <div class="altlist">
+              <span class="alt active"><span>136.8 km</span><span>1 h 32 min</span><span>+3.6 %</span></span>
+              <span class="alt"><span>141.2 km</span><span>1 h 38 min</span><span class="off">+7.0 %</span></span>
+            </div>
+          </div>
+          <p class="stops"><span class="lbl">Zastávky (2)</span> Pobočka Bratislava → Hotel</p>
+          <p class="mhint">Potiahnutím čiary pridáte medzizastávku. Kliknutím na zastávku ju odstránite.</p>
+          <div class="mapbox tall">
+            <div class="mapzoom"><span>+</span><span>-</span></div>
+            <svg viewBox="0 0 1000 320" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+              <g class="bgroads"><path class="big" d="M0 160 C250 150 500 190 1000 140"/><path d="M300 0 C320 120 280 220 310 320"/><path d="M640 0 C660 110 600 220 650 320"/><path d="M0 40 C300 60 700 20 1000 50"/></g>
+              <path class="river" d="M0 270 C250 250 600 300 1000 240"/>
+              <path class="rline" stroke="#94a3b8" stroke-width="4" opacity="0.6" d="M130 250 C300 120 600 30 870 70"/>
+              <path class="rline" stroke="#0066cc" stroke-width="5" opacity="0.85" d="M130 250 C320 220 620 160 870 70"/>
+              <g class="pin a" transform="translate(130,250)"><path d="M0,0 L-9,-15 A11,11 0 1,1 9,-15 Z"/><text y="-17">A</text></g>
+              <g class="pin b" transform="translate(870,70)"><path d="M0,0 L-9,-15 A11,11 0 1,1 9,-15 Z"/><text y="-17">B</text></g>
+            </svg>
+            <span class="mapattr">Leaflet | © OpenStreetMap contributors</span>
+          </div>
+        </div>
+      </div>
+    </div>
+    <ul class="ann">
+      <li>"Vyhnúť sa spoplatneným cestám:" shows only in direct mode and only when the route offers options. Only Sygic offers them: the backend adds the countries with vignette or toll sections on the route (values <code>&lt;iso3&gt;:tolls</code>).</li>
+      <li>The boxes come in the backend order (sorted by the ISO code). The labels are SK, CZ, AT, HU, PL, DE, SI, HR, IT, CH. A checked country stays in the list, also when the new route has no toll road there.</li>
+      <li>A click on a box routes again at once with the new avoid list. The save stores the avoid list of the line on screen, not the newest box state.</li>
+      <li>A change of "Smerovanie:" to OSRM clears the avoid list. OSRM with an avoid list fails with "Vyhnúť sa spoplatneným cestám sa dá len so službou Sygic. ..." (frame 8, no retry).</li>
+      <li>Sygic with no key on the server fails with "Služba Sygic nie je na serveri nastavená. Vyberte OSRM." (no retry).</li>
+      <li>The frame shows a saved map after "Prepočítať": the new proposal and the saved map are both present. A saved map opens with its own provider and avoid list. Before a new routing run it offers only the countries it was saved with.</li>
+      <li>"Odstrániť mapu" (light red) shows because the trip has a saved map. Frame 9 shows the confirm.</li>
+    </ul>
+  </section>
+
+  <!-- 3. Round trip -->
+  <section class="frame">
+    <h2>3. Round trip ("Cesta tam a späť"), one choice per leg</h2>
+    <div class="window">
+      <div class="content">
+        <div class="map-page">
+          <div class="mhead"><h1>Mapa trasy</h1><span class="muted">Kancelária → Sklad · 64 km</span></div>
+          <div class="toolbar">
+            <span class="tbtn">Prepočítať</span>
+            <span class="tl"><span class="box on"></span>Cesta tam a späť</span>
+            <span class="tbtn">Uložiť a použiť vzdialenosť</span>
+          </div>
+          <div class="route-info">
+            <span class="ri"><span class="lbl">Cieľová vzdialenosť</span><span class="val">64.0 km</span></span>
+            <span class="ri"><span class="lbl">Skutočná vzdialenosť</span><span class="val">63.3 km</span></span>
+            <span class="ri"><span class="lbl">Odchýlka</span><span class="val">-1.1 %</span></span>
+          </div>
+          <div class="legs">
+            <div class="leg">
+              <span class="lbl"><span class="swatch" style="background:#0066cc"></span>Alternatívne trasy - Tam</span>
+              <div class="altlist">
+                <span class="alt active"><span>31.2 km</span><span>29 min</span></span>
+                <span class="alt"><span>33.0 km</span><span>31 min</span></span>
+              </div>
+            </div>
+            <div class="leg">
+              <span class="lbl"><span class="swatch" style="background:#d97706"></span>Alternatívne trasy - Späť</span>
+              <div class="altlist">
+                <span class="alt active"><span>32.1 km</span><span>30 min</span></span>
+                <span class="alt"><span>30.8 km</span><span>34 min</span></span>
+              </div>
+            </div>
+          </div>
+          <p class="stops"><span class="lbl">Zastávky (3)</span> Kancelária → Sklad → Kancelária</p>
+          <p class="mhint">Potiahnutím čiary pridáte medzizastávku. Kliknutím na zastávku ju odstránite.</p>
+          <div class="mapbox tall">
+            <div class="mapzoom"><span>+</span><span>-</span></div>
+            <svg viewBox="0 0 1000 320" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+              <g class="bgroads"><path class="big" d="M0 200 C300 180 600 230 1000 190"/><path d="M220 0 C240 120 200 220 230 320"/><path d="M760 0 C740 110 790 220 770 320"/><path d="M0 70 C300 90 700 50 1000 80"/></g>
+              <path class="river" d="M0 300 C300 280 600 310 1000 270"/>
+              <path class="rline" stroke="#94a3b8" stroke-width="4" opacity="0.6" d="M160 220 C300 60 600 40 840 110"/>
+              <path class="rline" stroke="#94a3b8" stroke-width="4" opacity="0.6" d="M840 110 C760 300 400 310 160 220"/>
+              <path class="rline" stroke="#0066cc" stroke-width="5" opacity="0.85" d="M160 220 C320 130 600 100 840 110"/>
+              <path class="rline" stroke="#d97706" stroke-width="5" opacity="0.85" d="M840 110 C720 240 420 260 160 220"/>
+              <g class="pin a" transform="translate(160,220)"><path d="M0,0 L-9,-15 A11,11 0 1,1 9,-15 Z"/><text y="-17">A</text></g>
+              <g class="pin b" transform="translate(840,110)"><path d="M0,0 L-9,-15 A11,11 0 1,1 9,-15 Z"/><text y="-17">B</text></g>
+            </svg>
+            <span class="mapattr">Leaflet | © OpenStreetMap contributors</span>
+          </div>
+        </div>
+      </div>
+    </div>
+    <ul class="ann">
+      <li>"Cesta tam a späť" shows only in direct mode. A tick routes the way out and the way back as two requests (<code>route_round_trip</code>), so the way back can use a different road.</li>
+      <li>The trip km is the target of the whole round trip. "Skutočná vzdialenosť" and "Odchýlka" are the backend sum of the chosen pair.</li>
+      <li>The way out is blue (<code>#0066cc</code>), the way back is amber (<code>#d97706</code>). The other alternatives of each leg are grey (<code>#94a3b8</code>) and can be clicked.</li>
+      <li>Each leg has its own list: "Alternatívne trasy - Tam" and "Alternatívne trasy - Späť". The two choices are independent. A leg button shows the km and the drive time, but no deviation.</li>
+      <li>Only the way out has pins: A at the start and B at the turnaround. The way back shares those points, so it draws no pins of its own.</li>
+      <li>A via on one leg stays on that leg. A leg with a via shows "Alternatívy nie sú dostupné, keď trasa vedie cez viac ako dva body." in place of its list.</li>
+      <li>The box state is saved with the map. A saved round trip opens with the box ticked and both legs drawn from the saved row. The leg lists stay empty until "Prepočítať".</li>
+      <li>The save sends <code>save_trip_round_trip_route</code> with the chosen alternative of each leg. The backend joins the legs and sums the km.</li>
+    </ul>
+  </section>
+
+  <!-- 4. Vias -->
+  <section class="frame">
+    <h2>4. Direct route with vias (drag on the line)</h2>
+    <div class="window">
+      <div class="content">
+        <div class="map-page">
+          <div class="mhead"><h1>Mapa trasy</h1><span class="muted">Kancelária → Klient Poprad · 135 km</span></div>
+          <div class="toolbar">
+            <span class="tbtn">Prepočítať</span>
+            <span class="tl"><span class="box"></span>Cesta tam a späť</span>
+            <span class="tbtn">Uložiť a použiť vzdialenosť</span>
+            <span class="tbtn dangerlite">Odstrániť mapu</span>
+          </div>
+          <div class="route-info">
+            <span class="ri"><span class="lbl">Cieľová vzdialenosť</span><span class="val">135.0 km</span></span>
+            <span class="ri"><span class="lbl">Skutočná vzdialenosť</span><span class="val">137.6 km</span></span>
+            <span class="ri"><span class="lbl">Odchýlka</span><span class="val">+1.9 %</span></span>
+          </div>
+          <p class="mhint">Alternatívy nie sú dostupné, keď trasa vedie cez viac ako dva body.</p>
+          <p class="stops"><span class="lbl">Zastávky (4)</span> Kancelária → Bod 1 → Bod 2 → Klient Poprad</p>
+          <p class="mhint">Potiahnutím čiary pridáte medzizastávku. Kliknutím na zastávku ju odstránite.</p>
+          <div class="mapbox tall">
+            <div class="mapzoom"><span>+</span><span>-</span></div>
+            <svg viewBox="0 0 1000 320" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+              <g class="bgroads"><path class="big" d="M0 240 C200 220 400 250 600 210 S900 170 1000 160"/><path d="M150 0 C170 100 140 200 170 320"/><path d="M560 0 C540 120 590 220 570 320"/><path d="M0 80 C250 100 500 60 1000 90"/></g>
+              <path class="river" d="M0 300 C300 280 500 310 1000 260"/>
+              <path class="rline" stroke="#0066cc" stroke-width="5" opacity="0.85" d="M120 250 C200 190 280 150 360 140 C450 128 520 210 620 200 C720 190 800 110 880 80"/>
+              <g class="pin a" transform="translate(120,250)"><path d="M0,0 L-9,-15 A11,11 0 1,1 9,-15 Z"/><text y="-17">A</text></g>
+              <g class="via" transform="translate(360,140)"><circle r="9"/><text y="3.5">1</text></g>
+              <g class="via" transform="translate(620,200)"><circle r="9"/><text y="3.5">2</text></g>
+              <g class="pin b" transform="translate(880,80)"><path d="M0,0 L-9,-15 A11,11 0 1,1 9,-15 Z"/><text y="-17">B</text></g>
+              <circle class="ghost" cx="760" cy="135" r="5"/>
+              <path class="cursor" d="M764 139 l0 16 l4 -4 l3 7 l3 -1 l-3 -7 l6 0 Z"/>
+              <g class="tip" transform="translate(380,105)"><rect class="tipbox" width="128" height="22" rx="3"/><text class="tiptext" x="8" y="15">Odstrániť zastávku</text></g>
+            </svg>
+            <span class="mapattr">Leaflet | © OpenStreetMap contributors</span>
+          </div>
+        </div>
+      </div>
+    </div>
+    <ul class="ann">
+      <li>A small blue dot (the ghost) follows the cursor on the blue line. A drag of the dot adds a via. On release the page sends one request with the new point.</li>
+      <li>The backend decides where the new point goes in the list (<code>route_direct</code> with an insert point). The page does not compute the order.</li>
+      <li>A via is a numbered blue circle. The number is its place in the point list. A click on a via ("Odstrániť zastávku") removes it and routes again. A pin cannot be removed.</li>
+      <li>A dragged via loses its name, so the list shows "Bod N". An endpoint keeps its place name when it moves.</li>
+      <li>With more than two points the page shows no alternatives, only the hint "Alternatívy nie sú dostupné, keď trasa vedie cez viac ako dva body.".</li>
+      <li>The map does not zoom after an edit. A failed edit shows "Trasu sa nepodarilo vypočítať" with "Skúsiť znova" (frame 8).</li>
+    </ul>
+  </section>
+
+  <!-- 5. Loop -->
+  <section class="frame">
+    <h2>5. Loop mode (origin = destination)</h2>
+    <div class="window">
+      <div class="content">
+        <div class="map-page">
+          <div class="mhead"><h1>Mapa trasy</h1><span class="muted">Domov → Domov · 42 km</span></div>
+          <div class="toolbar">
+            <span class="tl">Smerovanie: <span class="input">OSRM (OpenStreetMap) v</span></span>
+            <span class="tl" title="Dĺžka, ktorú generátor hľadá. Predvolene km jazdy. Uložená trasa zapíše do jazdy km trasy.">Km okruhu: <span class="input" style="width:5rem">42</span></span>
+            <span class="tl" title="Počet bodov, cez ktoré okruh vedie. &quot;Auto&quot;: generátor vyberie 1 až 5.">Zastávky: <span class="input">Auto v</span></span>
+            <span class="tbtn">Generovať znova</span>
+            <span class="tbtn">Uložiť a použiť vzdialenosť</span>
+          </div>
+          <div class="route-info">
+            <span class="ri"><span class="lbl">Cieľová vzdialenosť</span><span class="val">42.0 km</span></span>
+            <span class="ri"><span class="lbl">Skutočná vzdialenosť</span><span class="val">43.1 km</span></span>
+            <span class="ri"><span class="lbl">Odchýlka</span><span class="val">+2.6 %</span></span>
+          </div>
+          <p class="stops"><span class="lbl">Zastávky (5)</span> Domov → Sever → Východ → Juh → Domov</p>
+          <p class="mhint">Potiahnutím čiary pridáte medzizastávku. Kliknutím na zastávku ju odstránite.</p>
+          <div class="mapbox tall">
+            <div class="mapzoom"><span>+</span><span>-</span></div>
+            <svg viewBox="0 0 1000 320" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+              <g class="bgroads"><path class="big" d="M0 170 C300 150 700 190 1000 160"/><path d="M380 0 C400 120 360 220 390 320"/><path d="M640 0 C620 110 670 220 650 320"/><path d="M0 60 C300 80 700 40 1000 70"/></g>
+              <path class="river" d="M0 290 C300 270 600 300 1000 260"/>
+              <path class="rline" stroke="#0066cc" stroke-width="5" opacity="0.85" d="M420 250 C380 180 400 90 480 60 C560 40 640 80 660 120 C690 180 650 240 600 265 C540 290 460 285 420 250 Z"/>
+              <g class="via" transform="translate(480,60)"><circle r="9"/><text y="3.5">1</text></g>
+              <g class="via" transform="translate(668,150)"><circle r="9"/><text y="3.5">2</text></g>
+              <g class="via" transform="translate(560,282)"><circle r="9"/><text y="3.5">3</text></g>
+              <g class="pin a" transform="translate(420,250)"><path d="M0,0 L-9,-15 A11,11 0 1,1 9,-15 Z"/><text y="-17">A</text></g>
+              <g class="tip" transform="translate(240,190)"><rect class="tipbox" width="236" height="22" rx="3"/><text class="tiptext" x="8" y="15">Začiatok a koniec okruhu: Domov</text></g>
+            </svg>
+            <span class="mapattr">Leaflet | © OpenStreetMap contributors</span>
+          </div>
+        </div>
+      </div>
+    </div>
+    <ul class="ann">
+      <li>Loop mode applies when "Odkiaľ" and "Kam" are the same place. The loop starts and ends at that place, so the place needs a position (frame 6).</li>
+      <li>The page generates a loop at once (<code>generate_route</code>). "Km okruhu:" is the target and starts at the trip km. Empty or 0 uses the trip km.</li>
+      <li>"Zastávky:" is "Auto" or a fixed count 1 to 10. With "Auto" the generator picks 1 to 5.</li>
+      <li>A change of "Km okruhu:" or "Zastávky:" and "Generovať znova" each draw a new random loop. A change of "Smerovanie:" does not: it applies to the next generation.</li>
+      <li>Loop mode has no alternatives, no "Cesta tam a späť" and no avoid boxes. "Odchýlka" turns orange outside the same tolerance.</li>
+      <li>One green A pin marks the start and the end ("Začiatok a koniec okruhu"). The vias are numbered blue circles. A drag or a click edits the loop, and it stays a loop (<code>route_direct</code> with the closing leg).</li>
+      <li>"Uložiť a použiť vzdialenosť" writes the km of the drawn loop to the trip, not the typed target.</li>
+      <li>A place outside every candidate area fails with "Pre toto miesto generátor nemá kandidátov." (no retry). Other failures show "Trasu sa nepodarilo vygenerovať" with "Skúsiť znova".</li>
+    </ul>
+  </section>
+
+  <!-- 6. Place without position -->
+  <section class="frame">
+    <h2>6. Endpoint without a position: banner and the place dialog</h2>
+    <div class="window" style="height:600px">
+      <div class="content dim" style="height:100%">
+        <div class="map-page">
+          <div class="mhead"><h1>Mapa trasy</h1><span class="muted">Kancelária → Klient Trnava · 48 km</span></div>
+          <div class="toolbar">
+            <span class="tbtn dis">Prepočítať</span>
+            <span class="tl" style="opacity:0.6"><span class="box"></span>Cesta tam a späť</span>
+            <span class="tbtn dis">Uložiť a použiť vzdialenosť</span>
+          </div>
+          <div class="ebox"><span>Miesto odchodu alebo príchodu nie je umiestnené na mape.</span><span class="bsmall">Umiestniť miesto</span></div>
+          <div class="mapbox tall">
+            <div class="mapzoom"><span>+</span><span>-</span></div>
+            <svg viewBox="0 0 1000 320" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+              <g class="bgroads"><path class="big" d="M0 200 C300 170 700 220 1000 180"/><path d="M200 0 C220 120 180 220 210 320"/><path d="M800 0 C780 110 830 220 810 320"/></g>
+              <path class="river" d="M0 290 C300 270 600 300 1000 260"/>
+            </svg>
+            <span class="mapattr">Leaflet | © OpenStreetMap contributors</span>
+          </div>
+        </div>
+      </div>
+      <div class="modal" style="width:560px;top:30px">
+        <h4><span>Umiestniť na mape<br><span class="muted" style="font-size:0.85rem;font-weight:500">Klient Trnava</span></span><span class="muted" style="font-size:1.6rem;line-height:1">×</span></h4>
+        <div class="row" style="flex-wrap:nowrap"><span class="input focus" style="flex:1;justify-content:flex-start">Klient Trnava</span><span class="btn">Hľadať</span></div>
+        <div style="display:flex;flex-direction:column;gap:4px">
+          <span class="cand sel">Trnava, Trnavský kraj, Slovensko</span>
+          <span class="cand">Trnava, okres Trnava, Slovensko</span>
+        </div>
+        <div class="mapbox" style="height:200px">
+          <div class="mapzoom"><span>+</span><span>-</span></div>
+          <svg viewBox="0 0 520 200" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+            <g class="bgroads"><path class="big" d="M0 120 C150 110 350 140 520 100"/><path d="M250 0 C260 70 240 140 260 200"/><path d="M0 40 C200 55 380 30 520 50"/></g>
+            <circle class="place-pin" cx="262" cy="104" r="9"/>
+          </svg>
+          <span class="mapattr">Leaflet | © OpenStreetMap contributors</span>
+        </div>
+        <div class="spread"><span class="hint" style="font-style:italic;font-size:0.78rem">Špendlík presuniete myšou na presné miesto.</span><span class="hint" style="font-variant-numeric:tabular-nums">48.377, 17.587</span></div>
+        <div class="foot"><span class="btn">Zrušiť</span><span class="btn primary">Uložiť miesto</span></div>
+      </div>
+    </div>
+    <ul class="ann">
+      <li>An endpoint place from an old database can have no position. <code>start_route_for_trip</code> then returns no endpoint, and the page opens the place dialog at once. The origin comes first, then the destination.</li>
+      <li>The search field holds the place name. The search runs only on "Hľadať" or Enter (<code>geocode_place</code>), never on a key press: the geocoder allows one request per second.</li>
+      <li>A click on a result moves the pin there. A click on the map or a drag of the pin places it by hand. The page keeps only the position, not the result text: the place keeps the name that the trips use.</li>
+      <li>The other states: "Hľadám...", "Nič sa nenašlo. Umiestnite špendlík na mape ručne.", "Vyhľadávanie zlyhalo. Skúste to znova.".</li>
+      <li>"Uložiť miesto" is disabled until a pin exists. The dialog writes nothing itself. The page saves the position (<code>set_place_position</code>), shows the toast "Miesto uložené", and routes at once.</li>
+      <li>If the write fails (for example in read-only mode), the toast "Nepodarilo sa uložiť miesto: ..." shows and the dialog stays open with its pin.</li>
+      <li>"Zrušiť", the close button, Esc or a click outside close the dialog. Then the red banner stays, and "Umiestniť miesto" opens the dialog again. "Prepočítať", the round-trip box and the save stay disabled.</li>
+      <li>The banner shows in direct mode only. A loop with an unplaced start gets the dialog, but no banner (see the open points).</li>
+    </ul>
+  </section>
+
+  <!-- 7. Writeback -->
+  <section class="frame">
+    <h2>7. "Uložiť a použiť vzdialenosť": the writeback dialog ("Zápis vzdialenosti trasy")</h2>
+    <div class="window" style="height:500px">
+      <div class="content dim" style="height:100%">
+        <div class="map-page">
+          <div class="mhead"><h1>Mapa trasy</h1><span class="muted">Kancelária → Klient Trnava · 48 km</span></div>
+        </div>
+      </div>
+      <div class="modal" style="width:400px;left:25%;top:24px">
+        <h4>Zápis vzdialenosti trasy</h4>
+        <p><b>Vzdialenosť jazdy sa zmení z 48 na 52 km.</b></p>
+        <div class="wbm">
+          <p>Spotreba obdobia: 6.2 -> 6.1 l/100km</p>
+          <p>Odchýlka od TP: 20.7 % -> 19.9 % (zákonný limit 20 %)</p>
+          <p>Po zápise sa obdobie vráti pod zákonný limit 20 %.</p>
+        </div>
+        <p>Táto zmena posunie 3 nasledujúcich jázd o +4 km.</p>
+        <ul class="bd"><li>+4 km -- vaša zmena vzdialenosti (48 -> 52 km)</li></ul>
+        <div style="overflow-x:auto"><table class="tbl">
+          <tr><th>Jazda</th><th>Dátum</th><th>Trasa</th><th class="n">Tachometer teraz</th><th class="n">Tachometer po zmene</th></tr>
+          <tr><td>99</td><td>03.08.2026</td><td>Klient Trnava -> Kancelária</td><td class="n">60114</td><td class="n">60118</td></tr>
+          <tr><td>100</td><td>04.08.2026</td><td>Kancelária -> Sklad</td><td class="n">60137</td><td class="n">60141</td></tr>
+          <tr><td>101</td><td>04.08.2026</td><td>Sklad -> Domov</td><td class="n">60152</td><td class="n">60156</td></tr>
+        </table></div>
+        <div class="foot"><span class="btn">Zrušiť</span><span class="btn">Zapísať vzdialenosť</span></div>
+      </div>
+      <div class="modal" style="width:400px;left:75%;top:24px">
+        <h4>Zápis vzdialenosti trasy</h4>
+        <p><b>Vzdialenosť jazdy sa zmení z 135 na 138 km.</b></p>
+        <div class="wbm">
+          <p>Jazda patrí do neuzavretého obdobia. Spotreba sa zatiaľ počíta z hodnoty v TP, takže sa nemení.</p>
+        </div>
+        <p>Žiadna nasledujúca jazda sa neposunie.</p>
+        <ul class="bd"><li>+3 km -- vaša zmena vzdialenosti (135 -> 138 km)</li></ul>
+        <div class="foot"><span class="btn">Zrušiť</span><span class="btn">Zapísať vzdialenosť</span></div>
+      </div>
+    </div>
+    <ul class="ann">
+      <li>The button first sends a dry run of the save: <code>save_trip_route</code> (one-way or loop), <code>save_trip_round_trip_route</code> (round trip), or <code>apply_saved_route_distance</code> (a saved map out of sync). The dry run writes nothing.</li>
+      <li>The backend rounds the road km to whole km (52.4 -> 52). The map keeps the exact road km. Only the trip km is rounded.</li>
+      <li>If the rounded km equals the trip km, the page saves at once with no dialog. If not, this dialog shows the plan.</li>
+      <li>The summary shows the old and the new trip km. The margin block shows the effect on the fill-up period, from the backend.</li>
+      <li>Closed period: "Spotreba obdobia: ... -> ..." and "Odchýlka od TP: ... -> ...". Then one of three lines: "Pozor: po zápise obdobie prekročí zákonný limit 20 %." (orange), "Obdobie je nad zákonným limitom 20 % pred zápisom aj po ňom." (orange), or "Po zápise sa obdobie vráti pod zákonný limit 20 %.". No line shows if the period stays under the limit.</li>
+      <li>Open period: "Jazda patrí do neuzavretého obdobia. ..." (right). With no TP rate (a BEV) the margin block is empty.</li>
+      <li>Later trips move by the km difference, as in the grid cascade. The table lists them with the odometer now and after. In the 400 px dialog the table scrolls sideways. With no later trip the dialog says "Žiadna nasledujúca jazda sa neposunie.". The line "+N km -- vaša zmena vzdialenosti" shows in both cases.</li>
+      <li>If the last trip of the year moves, the line "Posunie sa aj posledná jazda roka, ..." shows too (not drawn).</li>
+      <li>"Zapísať vzdialenosť" sends the same call as at the click, now not as a dry run. The backend plans again from the stored book and writes the map, the trip km, the trip odometer and the shifts in one transaction.</li>
+      <li>"Zrušiť", Esc or a click outside close the dialog and write nothing. A failed plan or save shows the toast "Trasu a vzdialenosť sa nepodarilo uložiť".</li>
+    </ul>
+  </section>
+
+  <!-- 8. Notices and errors -->
+  <section class="frame">
+    <h2>8. Saved notice, error boxes, status line</h2>
+    <div class="window">
+      <div class="content">
+        <div class="map-page">
+          <div class="mhead"><h1>Mapa trasy</h1><span class="muted">Kancelária → Klient Trnava · 52 km</span></div>
+          <div class="snotice"><span>Trasa uložená, vzdialenosť jazdy zodpovedá mape</span><span class="bsmall">Zavrieť</span></div>
+          <div class="ebox"><span>Trasu sa nepodarilo vypočítať</span><span class="bsmall">Skúsiť znova</span></div>
+          <div class="ebox"><span>Služba Sygic nie je na serveri nastavená. Vyberte OSRM.</span></div>
+          <p class="status">Generujem trasu...</p>
+        </div>
+      </div>
+    </div>
+    <ul class="ann">
+      <li>After a save the green notice shows, with the toast "Trasa uložená, vzdialenosť jazdy zodpovedá mape". "Zavrieť" closes the browser tab. The next routing run hides the notice.</li>
+      <li>A save tells an open logbook tab about the change (BroadcastChannel <code>kniha-jazd</code>), so its map pin and its km update. After the save "Uložiť a použiť vzdialenosť" is disabled until the next change.</li>
+      <li>The red box with "Skúsiť znova" is a failure that a retry can fix: "Trasu sa nepodarilo vypočítať" (direct, round trip) or "Trasu sa nepodarilo vygenerovať" (load, loop). A failure drops the proposal, so nothing stale can be saved.</li>
+      <li>The red box without a button is a failure that a retry cannot fix: "Záznam sa nenašiel. Skontrolujte, či máte vybrané správne vozidlo.", "Jazda nemá vyplnené miesto odchodu alebo príchodu.", "Služba Sygic nie je na serveri nastavená. Vyberte OSRM.", "Vyhnúť sa spoplatneným cestám sa dá len so službou Sygic. ...", "Pre toto miesto generátor nemá kandidátov.".</li>
+      <li>"Záznam sa nenašiel..." shows when the trip id is not a trip of the active vehicle.</li>
+      <li>While the page loads or routes, the status line "Načítavam..." or "Generujem trasu..." replaces the route info. All buttons are disabled.</li>
+    </ul>
+  </section>
+
+  <!-- 9. Remove -->
+  <section class="frame">
+    <h2>9. "Odstrániť mapu" confirm</h2>
+    <div class="window" style="height:260px">
+      <div class="content dim" style="height:100%">
+        <div class="map-page">
+          <div class="mhead"><h1>Mapa trasy</h1><span class="muted">Pobočka Bratislava → Hotel · 132 km</span></div>
+        </div>
+      </div>
+      <div class="modal" style="width:400px">
+        <h4>Odstrániť mapu</h4>
+        <p>Naozaj odstrániť mapu trasy?</p>
+        <div class="foot"><span class="btn">Zrušiť</span><span class="btn" style="background:var(--accent-danger-bg);color:var(--accent-danger)">Odstrániť</span></div>
+      </div>
+    </div>
+    <ul class="ann">
+      <li>"Odstrániť" deletes the saved map (<code>delete_trip_route</code>). It does not change the trip km. The toast "Mapa trasy odstránená" shows, and the logbook tab clears its map pin.</li>
+      <li>An unsaved proposal on screen stays. With no proposal the map is empty until "Prepočítať" or "Generovať znova".</li>
+      <li>A failed delete shows the toast "Trasu sa nepodarilo vygenerovať" (see the open points).</li>
+    </ul>
+  </section>
+
+  <section class="open-points">
+    <h2>Open points (from the code, not fixed)</h2>
+    <ul class="ann">
+      <li>A failed delete shows the generation text "Trasu sa nepodarilo vygenerovať" (<code>routeMap.error</code>), not a delete text (<code>src/routes/mapa/+page.svelte:1487</code>).</li>
+      <li>The "Umiestniť miesto" banner shows in direct mode only (<code>src/routes/mapa/+page.svelte:305</code>). In loop mode with an unplaced start, a closed place dialog leaves no way to open it again, except a page reload. "Generovať znova" stays enabled.</li>
+      <li>The page has no read-only handling. The save dry run returns before the read-only guard (<code>src-tauri/core/src/commands_internal/route_maps.rs:834-837</code>), so the writeback dialog opens, and the write then fails with the generic toast "Trasu a vzdialenosť sa nepodarilo uložiť".</li>
+      <li>A vehicle change in the header does not reload the page: the trip loads once (<code>src/routes/mapa/+page.svelte:849-854</code>). The header selectors look active but have no effect here.</li>
+      <li>The leg buttons of a round trip show no deviation (<code>src/routes/mapa/+page.svelte:1714-1715</code>). The feature doc says each option has its deviation (<code>docs/features/route-maps.md:24-27</code>).</li>
+      <li>Unused i18n key <code>routeMap.notAvailable</code> (<code>src/lib/i18n/sk/index.ts:472</code>), a text for a build without the web server. The app now ships only the web build.</li>
+    </ul>
+  </section>
+
+</div>
+<script>
+(function () {
+  var root = document.documentElement;
+  try { if (window.matchMedia("(prefers-color-scheme: dark)").matches) root.setAttribute("data-theme", "dark"); } catch (e) {}
+  document.getElementById("themebtn").addEventListener("click", function () {
+    root.setAttribute("data-theme", root.getAttribute("data-theme") === "dark" ? "light" : "dark");
+  });
+})();
+</script>
+<script>
+(function () {
+  /* Outside claude.ai (a local file, GitHub Pages, a raw-HTML proxy) the page nav uses the
+     repo files next to this one; on claude.ai it keeps the artifact links. */
+  var h = location.hostname;
+  if (location.protocol === "file:" || /github\.io$|githack\.com$/.test(h)) {
+    var links = document.querySelectorAll("a[data-file]");
+    for (var i = 0; i < links.length; i++) links[i].href = links[i].getAttribute("data-file");
+  }
+})();
+</script>
+</body>
+</html>

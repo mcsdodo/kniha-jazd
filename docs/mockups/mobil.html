@@ -1,0 +1,480 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Kniha jázd na mobile</title>
+<style>
+:root {
+  /* Layout: a row of phone frames, each with a short note under it. The phone UI copies the app theme (system font, blue accent). */
+  --bg: #eef1f4;
+  --surface: #ffffff;
+  --ink: #2c3e50;
+  --muted: #6b7a80;
+  --accent: #3498db;
+  --line: #d6dde2;
+  --ok: #27ae60;
+  --warn: #d68910;
+  --warn-bg: #fdf3e1;
+  --ok-bg: #e6f6ec;
+  --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Ubuntu, sans-serif;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #121416; --surface: #1e2124; --ink: #e0e0e0; --muted: #9aa4a8;
+    --accent: #5dade2; --line: #343a3f; --ok: #52c47e; --warn: #f0b04a;
+    --warn-bg: #3a2e18; --ok-bg: #17331f; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #121416; --surface: #1e2124; --ink: #e0e0e0; --muted: #9aa4a8;
+  --accent: #5dade2; --line: #343a3f; --ok: #52c47e; --warn: #f0b04a;
+  --warn-bg: #3a2e18; --ok-bg: #17331f; color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--font); font-size: 15px; line-height: 1.45; }
+header.page { padding: 24px 16px 8px; max-width: 1200px; margin: 0 auto; }
+header.page h1 { margin: 0 0 4px; font-size: 1.5rem; text-wrap: balance; }
+header.page p { margin: 0; color: var(--muted); max-width: 65ch; }
+.row { display: flex; flex-wrap: wrap; gap: 28px; padding: 20px 16px 40px; max-width: 1200px; margin: 0 auto; justify-content: flex-start; }
+.screen { display: flex; flex-direction: column; gap: 10px; width: 330px; }
+.screen h2 { margin: 0; font-size: 0.8rem; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
+.phone { border: 2px solid var(--line); border-radius: 26px; background: var(--surface); overflow: hidden; min-height: 600px; display: flex; flex-direction: column; box-shadow: 0 6px 18px rgba(0,0,0,0.08); }
+.bar { display: flex; justify-content: space-between; align-items: center; padding: 14px 16px 10px; border-bottom: 1px solid var(--line); font-weight: 600; }
+.bar .back { color: var(--accent); font-weight: 500; }
+.bar small { font-weight: 400; color: var(--muted); }
+.body { padding: 14px 16px; display: flex; flex-direction: column; gap: 12px; flex: 1; }
+.note { font-size: 0.9rem; color: var(--muted); }
+.note b { color: var(--ink); }
+.big { display: block; width: 100%; padding: 18px 14px; border-radius: 12px; border: none; font: inherit; font-size: 1.05rem; font-weight: 600; text-align: left; background: var(--accent); color: #fff; }
+.big.alt { background: transparent; color: var(--accent); border: 2px solid var(--accent); }
+.big small { display: block; font-weight: 400; font-size: 0.85rem; opacity: 0.9; }
+.pill { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 0.78rem; font-weight: 600; }
+.pill.ok { background: var(--ok-bg); color: var(--ok); }
+.pill.warn { background: var(--warn-bg); color: var(--warn); }
+.card { border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; display: flex; flex-direction: column; gap: 4px; }
+.card .top { display: flex; justify-content: space-between; font-weight: 600; font-variant-numeric: tabular-nums; }
+.card .meta { font-size: 0.88rem; color: var(--muted); }
+.card .act { align-self: flex-end; color: var(--accent); font-weight: 600; font-size: 0.9rem; }
+.field { display: flex; flex-direction: column; gap: 4px; }
+.field > label { font-size: 0.8rem; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; }
+.input { border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; font-variant-numeric: tabular-nums; display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.input.focus { border-color: var(--accent); box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 25%, transparent); }
+.input .hint { color: var(--muted); font-size: 0.85rem; }
+.input .caret { color: var(--muted); }
+.ro { padding: 2px 0; font-variant-numeric: tabular-nums; }
+.ro .hint { color: var(--muted); font-size: 0.85rem; }
+.gps { flex: none; border: 1px solid var(--accent); color: var(--accent); border-radius: 8px; padding: 6px 10px; font-size: 0.85rem; font-weight: 600; background: transparent; }
+.warnbox { background: var(--warn-bg); border-radius: 8px; padding: 8px 10px; font-size: 0.88rem; display: flex; flex-direction: column; gap: 6px; }
+.warnbox b { color: var(--warn); }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip { border: 1px solid var(--line); border-radius: 999px; padding: 4px 10px; font-size: 0.85rem; }
+.save { margin-top: auto; padding: 14px; border-radius: 10px; text-align: center; background: var(--accent); color: #fff; font-weight: 700; }
+.ann { font-size: 0.88rem; color: var(--muted); margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 4px; }
+.ann li::marker { color: var(--accent); }
+.open { border: 2px dashed var(--warn); border-radius: 10px; padding: 8px 10px; display: flex; flex-direction: column; gap: 6px; }
+.open .tag { font-size: 0.75rem; font-weight: 700; color: var(--warn); text-transform: uppercase; letter-spacing: 0.05em; }
+.list-row { display: flex; justify-content: space-between; font-size: 0.88rem; font-variant-numeric: tabular-nums; border-bottom: 1px solid var(--line); padding: 4px 0; }
+.list-row:last-child { border-bottom: none; }
+.sheet { border-top: 1px solid var(--line); padding-top: 10px; display: flex; flex-direction: column; gap: 8px; }
+.btns { display: flex; gap: 8px; }
+.btns div { flex: 1; text-align: center; padding: 12px; border-radius: 10px; font-weight: 700; border: 1px solid var(--line); }
+.btns .primary { background: var(--accent); color: #fff; border-color: var(--accent); }
+.routebox { border: 1px solid var(--accent); border-radius: 10px; padding: 10px 12px; display: flex; flex-direction: column; gap: 8px; }
+.routebox .head { font-size: 0.85rem; color: var(--muted); }
+.two { display: flex; gap: 8px; }
+.two .field { flex: 1; }
+.cand { border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+.cand div { padding: 8px 10px; border-bottom: 1px solid var(--line); font-size: 0.88rem; }
+.cand div:last-child { border-bottom: none; }
+.cand .sel { background: color-mix(in srgb, var(--accent) 12%, transparent); }
+.old { opacity: 0.55; }
+.mapbox { height: 150px; border-radius: 8px; border: 1px solid var(--line); position: relative; overflow: hidden;
+  background: linear-gradient(135deg, color-mix(in srgb, var(--ok) 10%, var(--surface)), color-mix(in srgb, var(--accent) 10%, var(--surface))); }
+.mapbox svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+.legend { display: flex; gap: 12px; font-size: 0.85rem; color: var(--muted); align-items: center; }
+.dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; margin-right: 4px; }
+.month { font-size: 0.85rem; font-weight: 700; color: var(--muted); margin-top: 4px; }
+.kv { display: flex; justify-content: space-between; font-size: 0.9rem; padding: 6px 0; border-bottom: 1px solid var(--line); font-variant-numeric: tabular-nums; }
+.kv:last-child { border-bottom: none; }
+.lbl { font-size: 0.75rem; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; }
+.btn2 { border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; font-size: 0.85rem; text-align: center; flex: 1; }
+.link { color: var(--accent); font-weight: 600; font-size: 0.9rem; }
+.dim { position: relative; }
+.dim::after { content: ""; position: absolute; inset: 0; background: rgba(0,0,0,0.35); }
+.sheetx { border-top-left-radius: 16px; border-top-right-radius: 16px; background: var(--surface); padding: 14px 16px; display: flex; flex-direction: column; gap: 8px; margin-top: auto; position: relative; z-index: 1; box-shadow: 0 -4px 14px rgba(0,0,0,0.15); }
+.tbl { width: 100%; border-collapse: collapse; font-size: 0.8rem; font-variant-numeric: tabular-nums; }
+.tbl th, .tbl td { padding: 3px 2px; text-align: left; border-bottom: 1px solid var(--line); }
+.tbl td.n, .tbl th.n { text-align: right; }
+.status { font-size: 0.85rem; color: var(--muted); }
+.pill { white-space: nowrap; }
+.frow .top { font-size: 0.85rem; white-space: nowrap; gap: 6px; }
+.frow .top b { font-weight: 700; }
+.chip.on { border-color: var(--accent); color: var(--accent); font-weight: 700; background: color-mix(in srgb, var(--accent) 12%, transparent); }
+.seg { display: flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+.seg span { flex: 1; text-align: center; padding: 7px 4px; font-size: 0.88rem; }
+.seg span.on { background: color-mix(in srgb, var(--accent) 14%, transparent); color: var(--accent); font-weight: 700; }
+.seg span + span { border-left: 1px solid var(--line); }
+.kmcol { display: flex; flex-direction: column; align-items: flex-end; }
+.kmcol .odo { font-size: 0.8rem; font-weight: 400; color: var(--muted); }
+.ann li.prop::marker { color: var(--warn); }
+.ann li.prop b { color: var(--warn); }
+</style>
+</head>
+<body>
+<header class="page">
+  <h1>Kniha jázd on the phone: current state</h1>
+  <p>Nine phone screens under <code>/m</code>, as they work on <code>main</code>. The example data is invented. The UI text is Slovak, as in the app. The notes under each screen say what the screen does.</p>
+  <p>The source is <code>docs/mockups/mobil.html</code> in the repo. Its git history shows when the page changed.</p>
+  <p>An orange dashed box with the tag "Návrh (task NN)" marks a proposal that is not built yet. This page has no open proposal.</p>
+  <p style="display:flex;flex-wrap:wrap;gap:6px 14px;font-size:0.9rem"><b>Mobil</b> <span style="color:var(--muted)">PC:</span> <a style="color:var(--accent)" href="https://claude.ai/artifact/PCbcTRe6EybiezMCqH8rm2" data-file="jazdy.html">Jazdy</a><a style="color:var(--accent)" href="https://claude.ai/artifact/Nvtcv8rofbFtVG4BNbAoMr" data-file="doklady.html">Doklady</a><a style="color:var(--accent)" href="https://claude.ai/artifact/RgyA56LvfFjRHpgMcYG3ku" data-file="fuelio.html">Fuelio</a><a style="color:var(--accent)" href="https://claude.ai/artifact/F3fXHbFEaERHHcKC4tr215" data-file="mapa.html">Mapa</a><a style="color:var(--accent)" href="https://claude.ai/artifact/T2jiZ3ZLGs9s1F89UZP9eE" data-file="miesta.html">Miesta</a><a style="color:var(--accent)" href="https://claude.ai/artifact/F5fCz7wgrunXAyQ5rRw1AJ" data-file="nastavenia.html">Nastavenia</a></p>
+</header>
+
+<div class="row">
+
+  <!-- 1. Start page -->
+  <section class="screen">
+    <h2>1. Start page (/m)</h2>
+    <div class="phone">
+      <div class="bar"><span>Kniha jázd</span><small>Škoda Octavia BA123XY</small></div>
+      <div class="body">
+        <div class="big">Pridať z Fuelio<small>Jazda podľa GPS záznamu</small></div>
+        <div class="big alt">Pridať ručne<small>Koniec teraz, cieľ podľa mojej polohy</small></div>
+        <div class="big alt">Všetky jazdy<small>2026: 144 jázd, 19 043 km</small></div>
+        <div class="card">
+          <div class="lbl">Štatistiky 2026</div>
+          <div class="kv"><span>Celkovo najazdené</span><span>19 043 km</span></div>
+          <div class="kv"><span>PHM</span><span>1110.2 l / 1928.84 EUR</span></div>
+          <div class="kv"><span>Zostatok</span><span>52.5 l</span></div>
+          <div class="kv"><span>Spotreba</span><span>5.88 l/100 km</span></div>
+          <div class="kv"><span>Odchýlka</span><span>114.3 %</span></div>
+          <div class="note" style="border-left:3px solid var(--accent);padding:4px 8px">Návrh tankovania: 8.98 L -&gt; 5.51 l/100km</div>
+        </div>
+        <span class="link">Otvoriť tabuľku (PC)</span>
+      </div>
+    </div>
+    <ul class="ann">
+      <li>The active vehicle shows in the bar.</li>
+      <li>"Pridať z Fuelio" shows only when the Dropbox settings exist.</li>
+      <li>In read-only mode, both add buttons are hidden.</li>
+      <li>On a narrow screen, the PC header has a link "Mobilná verzia" to this page.</li>
+      <li>The stats card has the year stats of the PC page, without the vehicle settings row (name, plate, tank, TP).</li>
+      <li>With Home Assistant set, the card also shows the real odometer and the liters to refill.</li>
+      <li>The suggestions: "Návrh tankovania" for the open period, and above the card the compensation banner when the year is over the limit.</li>
+    </ul>
+  </section>
+
+  <!-- 2. Trip list -->
+  <section class="screen">
+    <h2>2. All trips (/m/jazdy)</h2>
+    <div class="phone">
+      <div class="bar"><span><span class="back">&lt; Späť</span> &nbsp;Jazdy</span><span class="btn2" style="flex:none">2026 v</span></div>
+      <div class="body">
+        <div class="card">
+          <div class="top" style="font-size:0.9rem"><span>Spotreba 5.88 l/100 km</span><span class="pill ok">TP 5.1, +20.0 %</span></div>
+          <div class="meta">19 043 km, zostatok 52.5 l</div>
+          <div class="meta">Najhoršie obdobie medzi tankovaniami, limit +20 %.</div>
+        </div>
+        <div class="month">Október 2026</div>
+        <div class="card">
+          <div class="top"><span>Pi 30.10. 18:42 - 19:16</span><span class="kmcol"><span>28 km</span><span class="odo">73 814</span></span></div>
+          <div>Klient Poprad -&gt; Kancelária</div>
+          <div class="meta">návrat z rokovania</div>
+        </div>
+        <div class="card">
+          <div class="top"><span>Št 29.10. 09:34 - 12:05</span><span class="kmcol"><span>218 km</span><span class="odo">73 651</span></span></div>
+          <div>Sklad -&gt; Čerpacia stanica D1</div>
+          <div class="meta">služobná cesta</div>
+          <div class="chips"><span class="pill ok">Tankovanie 54.51 l, plná</span><span class="pill ok">5.98 l/100 km</span></div>
+        </div>
+        <div class="card">
+          <div class="top"><span>St 28.10. 07:40 - 07:56</span><span class="kmcol"><span>4 km</span><span class="odo">73 384</span></span></div>
+          <div>Hotel -&gt; Pobočka Bratislava</div>
+          <div class="meta">rokovanie</div>
+        </div>
+      </div>
+    </div>
+    <ul class="ann">
+      <li>The year picker loads the trips of one year. The newest trip is at the top, with a header per month.</li>
+      <li>The summary card has the values of the PC page: consumption, the TP rate with the margin, the km and the fuel remaining.</li>
+      <li>A card with a fill-up shows the liters and the rate of that fill-up period. A rate over the limit gets an orange "nad limitom" pill. A trip with fuel or other costs and no linked invoice gets "chýba doklad". This also shows when Paperless is not set (the backend flag does not check Paperless).</li>
+      <li>The odometer at the end of the trip shows under the km, in grey, as a number only. The line under the route shows only the purpose.</li>
+      <li>Tap a card to open the detail.</li>
+    </ul>
+  </section>
+
+  <!-- 3. Trip detail -->
+  <section class="screen">
+    <h2>3. Trip detail</h2>
+    <div class="phone">
+      <div class="bar"><span><span class="back">&lt; Jazdy</span> &nbsp;Pi 30.10.2026</span><small>Jazda č. 144</small></div>
+      <div class="body">
+        <div><div class="lbl">Trasa</div><b>Klient Poprad -&gt; Kancelária</b><br>18:42 - 19:16, 28 km</div>
+        <div class="mapbox"><svg viewBox="0 0 300 150" preserveAspectRatio="none" aria-hidden="true"><polyline points="30,30 80,45 120,70 160,72 200,95 260,120" fill="none" stroke="#0984e3" stroke-width="4" stroke-linejoin="round"/></svg></div>
+        <div><div class="lbl">Účel</div>návrat z rokovania</div>
+        <div class="card">
+          <div class="kv"><span>Tachometer na začiatku</span><span>73 786 km</span></div>
+          <div class="kv"><span>Tachometer na konci</span><span>73 814 km</span></div>
+          <div class="kv"><span>Spotreba</span><span>5.10 l/100 km <span class="pill" style="background:var(--line)">Odhad podľa TP</span></span></div>
+          <div class="kv"><span>Zostatok paliva</span><span>57.7 l</span></div>
+        </div>
+        <div class="note">Len na čítanie. Jazdu upravíte v tabuľke na PC.</div>
+      </div>
+    </div>
+    <ul class="ann">
+      <li>Read-only. The values come from the same backend data as the PC grid.</li>
+      <li>The map shows the stored route of the trip. Pinch to zoom, drag to move, double-tap to zoom in. The scroll wheel does not zoom.</li>
+      <li>A trip with a fill-up, a charge or other costs shows them in more cards. With Paperless set, the invoices of the trip show too.</li>
+      <li>"&lt; Jazdy" returns to the list. The page uses a history entry for the detail, so the phone back gesture also returns to the list (not tested on a real phone yet).</li>
+    </ul>
+  </section>
+
+  <!-- 4. Fuelio list -->
+  <section class="screen">
+    <h2>4. Fuelio drives (/m/fuelio)</h2>
+    <div class="phone">
+      <div class="bar"><span><span class="back">&lt; Späť</span> &nbsp;Jazdy z Fuelio</span></div>
+      <div class="body">
+        <div class="status">Synchronizujem s Dropbox...</div>
+        <div class="note">Jazdy z Fuelio, ktoré nie sú v knihe jázd. Najnovšie hore.</div>
+        <div class="card frow"><div class="top"><span>5.11.2026 &nbsp;16:08 - 16:24 &nbsp;5.0 km</span><span class="link">Pridať &gt;</span></div></div>
+        <div class="card frow"><div class="top"><span>5.11.2026 &nbsp;15:27 - 15:39 &nbsp;5.4 km</span><span class="link">Pridať &gt;</span></div></div>
+        <div class="card frow"><div class="top"><span>5.11.2026 &nbsp;11:51 - 11:56 &nbsp;2.8 km</span><span class="link">Pridať &gt;</span></div></div>
+        <div class="card frow"><div class="top"><span>4.11.2026 &nbsp;17:07 - 17:13 &nbsp;2.9 km</span><span class="link">Pridať &gt;</span></div></div>
+        <div class="card frow"><div class="top"><span>2.11.2026 &nbsp;18:38 - 18:42 &nbsp;2.3 km</span><span class="link">Pridať &gt;</span></div></div>
+      </div>
+    </div>
+    <ul class="ann">
+      <li>The list shows the drives of the current year that have no trip in the book. Ignored drives and drives under the saved minimum km of the PC Fuelio page do not show.</li>
+      <li>The local list shows at once. The Dropbox sync runs at the same time. It downloads only the new files, and the list reloads only if a file came.</li>
+      <li>After the sync, the status line shows "Synchronizované o 17:52". If the sync fails, the status line shows the error, and the local list stays.</li>
+    </ul>
+  </section>
+
+  <!-- 5. Fuelio add -->
+  <section class="screen">
+    <h2>5. Add from Fuelio</h2>
+    <div class="phone">
+      <div class="bar"><span><span class="back">&lt; Späť</span> &nbsp;Nová jazda</span></div>
+      <div class="body">
+        <div class="card frow"><div class="top"><span>5.11.2026 &nbsp;16:08 - 16:24</span><span>5 km <small style="font-weight:400;color:var(--muted)">(GPS 5.0 km)</small></span></div></div>
+        <div class="mapbox"><svg viewBox="0 0 300 150" preserveAspectRatio="none" aria-hidden="true"><polyline points="30,30 80,45 120,70 160,72 200,95 260,120" fill="none" stroke="#d63031" stroke-width="4" stroke-linejoin="round"/><circle cx="30" cy="30" r="7" fill="#27ae60" stroke="#fff" stroke-width="2"/><circle cx="260" cy="120" r="7" fill="#d63031" stroke="#fff" stroke-width="2"/></svg></div>
+        <div class="legend"><span><span class="dot" style="background:#27ae60"></span>Odkiaľ</span><span><span class="dot" style="background:#d63031"></span>Kam</span></div>
+        <div class="field">
+          <label for="f-origin">Odkiaľ</label>
+          <span class="note">Žiadne známe miesto nablízku.</span>
+          <div class="input focus" id="f-origin"><span class="hint">Názov nového miesta</span></div>
+          <span class="note">Poloha nového miesta: začiatok GPS jazdy.</span>
+          <span class="link">Vybrať existujúce miesto</span>
+        </div>
+        <div class="field">
+          <label for="f-dest">Kam</label>
+          <div class="input" id="f-dest"><span>Kancelária - 12 m</span><span class="caret">v</span></div>
+          <span class="link">+ Nové miesto tu</span>
+        </div>
+        <div class="field">
+          <label for="f-purpose">Účel</label>
+          <div class="input" id="f-purpose"><span class="hint">služobná cesta</span></div>
+        </div>
+        <div class="note">[x] Uložiť GPS trasu</div>
+        <div class="save">Uložiť jazdu</div>
+      </div>
+    </div>
+    <ul class="ann">
+      <li>The map shows the GPS track: green is the start, red is the end. Pinch and drag work.</li>
+      <li>The places are sorted by distance from the GPS start or end. A known place near the point is selected (BIZ-031).</li>
+      <li>No known place near the point: a name field for a new place opens. The new place gets the GPS point.</li>
+      <li>"+ Nové miesto tu" is always there, also when a place matched. The PC Fuelio dialog has the same option.</li>
+      <li>The km is the GPS km, rounded to whole km. The start and end come from the drive.</li>
+    </ul>
+  </section>
+
+  <!-- 6. Manual add -->
+  <section class="screen">
+    <h2>6. Add by hand (/m/nova)</h2>
+    <div class="phone">
+      <div class="bar"><span><span class="back">&lt; Späť</span> &nbsp;Nová jazda</span></div>
+      <div class="body">
+        <div class="field">
+          <label for="n-origin">Odkiaľ</label>
+          <div class="input" id="n-origin"><span>Domov</span><span class="gps">Moja poloha</span></div>
+          <span class="note">Cieľ poslednej jazdy.</span>
+          <span class="link">+ Nové miesto</span>
+        </div>
+        <div class="field">
+          <label for="n-dest">Kam</label>
+          <span class="note">Miesta podľa polohy GPS (presnosť 12 m)</span>
+          <div class="input" id="n-dest"><span>Kancelária - 40 m</span><span class="gps">Moja poloha</span></div>
+          <span class="link">+ Nové miesto</span>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:8px">
+          <div class="seg"><span class="on">OSRM</span><span>Sygic</span></div>
+          <div class="mapbox"><svg viewBox="0 0 300 150" preserveAspectRatio="none" aria-hidden="true"><polyline points="30,120 70,70 130,40 200,30 265,35" fill="none" stroke="#9aa4a8" stroke-opacity="0.7" stroke-width="5" stroke-linejoin="round"/><polyline points="30,120 90,110 150,95 190,70 230,50 265,35" fill="none" stroke="#0984e3" stroke-width="5" stroke-linejoin="round"/><circle cx="30" cy="120" r="7" fill="#27ae60" stroke="#fff" stroke-width="2"/><circle cx="265" cy="35" r="7" fill="#d63031" stroke="#fff" stroke-width="2"/></svg></div>
+          <div class="lbl">Alternatívne trasy</div>
+          <div class="chips"><span class="chip on">1: 23.8 km, 31 min</span><span class="chip">2: 21.2 km, 38 min</span></div>
+        </div>
+        <div class="routebox">
+          <span class="head">Podľa trasy 1: 23.8 km, 31 min</span>
+          <div class="field">
+            <label for="n-end">Koniec</label>
+            <div class="input" id="n-end"><span>05.11.2026 15:30</span><span class="gps">Teraz</span></div>
+          </div>
+          <div class="field">
+            <label for="n-start">Začiatok</label>
+            <div class="input" id="n-start"><span>05.11.2026 14:59</span></div>
+            <span class="note">koniec - 31 min jazdy podľa trasy</span>
+          </div>
+          <div class="field">
+            <label for="n-km">Vzdialenosť (km)</label>
+            <div class="input" id="n-km"><span>24</span></div>
+            <span class="note">podľa trasy, môžete prepísať</span>
+          </div>
+        </div>
+        <div class="field">
+          <label for="n-purpose">Účel</label>
+          <div class="input" id="n-purpose"><span class="hint">služobná cesta</span></div>
+        </div>
+        <div class="save">Uložiť jazdu</div>
+      </div>
+    </div>
+    <ul class="ann">
+      <li>"Odkiaľ" and "Kam" use the same picker: an existing place or a new place.</li>
+      <li>"Odkiaľ" starts with the destination of the last trip before the end time. The backend picks it.</li>
+      <li>"Kam" reads the GPS when the page opens. "Moja poloha" sorts the list by distance and selects a known place near the point (BIZ-031). No such place: a new place at the GPS point opens.</li>
+      <li>"Koniec" starts at now. You can set another time, and "Teraz" sets now again.</li>
+      <li>When both places have a position, the backend computes the route. It fills "Začiatok" (the end minus the drive time) and the km (rounded to whole km). A value that you type stays.</li>
+      <li>No fuel fields.</li>
+      <li>The OSRM / Sygic switch (no title) shows only when the server has 2 or more providers (a Sygic key is set). It starts at the server default (OSRM). A change asks for the route again and selects route 1. The choice is not remembered.</li>
+      <li>The map (200 px) shows the chosen route in blue and the other alternatives in grey. Pinch and drag work, as on the trip detail.</li>
+      <li>The chips list the alternatives, fastest first, in the order the backend sends them, at most 3. With one route there are no chips and the line says "Podľa trasy: ...". See screen 9 for a tap on route 2.</li>
+      <li>A new end time keeps the chosen route. If the route fails, the map and the chips hide, and you type the start and the km.</li>
+    </ul>
+  </section>
+
+  <!-- 7. New place -->
+  <section class="screen">
+    <h2>7. "+ Nové miesto" open</h2>
+    <div class="phone">
+      <div class="bar"><span><span class="back">&lt; Späť</span> &nbsp;Nová jazda</span></div>
+      <div class="body">
+        <div class="field">
+          <label for="c-name">Odkiaľ</label>
+          <div class="input focus" id="c-name"><span>Klient Trnava</span><span class="hint">|</span></div>
+          <div class="card">
+            <span class="note">Poloha: Hlavná 12, 917 01 Trnava, Slovensko</span>
+            <div class="btns"><div>Moja poloha</div><div class="primary">Hľadať adresu</div></div>
+            <div class="two"><div class="input focus" style="flex:1"><span>Hlavná 12, Trnava</span></div><div class="btn2" style="flex:none">Hľadať</div></div>
+            <div class="cand">
+              <div class="sel">Hlavná 12, 917 01 Trnava, Slovensko</div>
+              <div>Hlavná 12, 900 28 Ivanka pri Dunaji, Slovensko</div>
+            </div>
+          </div>
+          <span class="link">Vybrať existujúce miesto</span>
+        </div>
+        <div class="field old">
+          <label for="c-dest">Kam</label>
+          <div class="input" id="c-dest"><span>Kancelária - 40 m</span><span class="gps">Moja poloha</span></div>
+        </div>
+      </div>
+    </div>
+    <ul class="ann">
+      <li>The same panel opens for "Odkiaľ" and for "Kam".</li>
+      <li>You type the name. The position comes from "Moja poloha" (the GPS point) or from "Hľadať adresu" (the geocoder of the Miesta page).</li>
+      <li>The panel shows the position that you chose. Without a position, it says "Nové miesto ešte nemá polohu", and the save is blocked.</li>
+      <li>The place is created when you save the trip. A GPS position gets source "manual", an address gets source "geocoder".</li>
+    </ul>
+  </section>
+
+  <!-- 8. Odometer shift -->
+  <section class="screen">
+    <h2>8. Later trips move</h2>
+    <div class="phone">
+      <div class="body dim" style="flex:none;height:150px"><div class="card"><div class="top"><span>15.10.2026 16:09 - 16:16</span><span>3 km</span></div></div></div>
+      <div class="sheetx">
+        <b>Posun tachometra</b>
+        <div class="note"><b>Nová jazda posunie 17 nasledujúcich jázd o +3 km.</b></div>
+        <div class="note">+3 km -- vzdialenosť novej jazdy</div>
+        <table class="tbl">
+          <tr><th>Jazda</th><th>Dátum</th><th class="n">Tachometer teraz</th><th class="n">Tachometer po zmene</th></tr>
+          <tr><td>128</td><td>16.10.</td><td class="n">72 734</td><td class="n">72 737</td></tr>
+          <tr><td>129</td><td>16.10.</td><td class="n">72 740</td><td class="n">72 743</td></tr>
+          <tr><td>130</td><td>19.10.</td><td class="n">72 743</td><td class="n">72 746</td></tr>
+          <tr><td colspan="4" style="color:var(--muted)">...</td></tr>
+          <tr><td>144</td><td>30.10.</td><td class="n">73 814</td><td class="n">73 817</td></tr>
+        </table>
+        <div class="btns"><div>Zrušiť</div><div class="primary">Uložiť a posunúť</div></div>
+      </div>
+    </div>
+    <ul class="ann">
+      <li>Both add pages first ask the backend for a dry run. The dialog opens only if later trips move.</li>
+      <li>It is the odometer dialog of the PC page, with a phone layout below 600 px. The real dialog also has a route column.</li>
+      <li>A trip at "now" is usually the last one, so the dialog does not open.</li>
+      <li>"Zrušiť" saves nothing. A new place from the manual page stays in the place book.</li>
+    </ul>
+  </section>
+
+  <!-- 9. Second route chosen -->
+  <section class="screen">
+    <h2>9. Route 2 chosen</h2>
+    <div class="phone">
+      <div class="bar"><span><span class="back">&lt; Späť</span> &nbsp;Nová jazda</span></div>
+      <div class="body">
+        <div class="card">
+          <div class="top"><span>Domov -&gt; Kancelária</span></div>
+          <div class="meta">Odkiaľ a Kam ako na obrazovke 6</div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:8px">
+          <div class="seg"><span class="on">OSRM</span><span>Sygic</span></div>
+          <div class="mapbox"><svg viewBox="0 0 300 150" preserveAspectRatio="none" aria-hidden="true"><polyline points="30,120 90,110 150,95 190,70 230,50 265,35" fill="none" stroke="#9aa4a8" stroke-opacity="0.7" stroke-width="5" stroke-linejoin="round"/><polyline points="30,120 70,70 130,40 200,30 265,35" fill="none" stroke="#0984e3" stroke-width="5" stroke-linejoin="round"/><circle cx="30" cy="120" r="7" fill="#27ae60" stroke="#fff" stroke-width="2"/><circle cx="265" cy="35" r="7" fill="#d63031" stroke="#fff" stroke-width="2"/></svg></div>
+          <div class="lbl">Alternatívne trasy</div>
+          <div class="chips"><span class="chip">1: 23.8 km, 31 min</span><span class="chip on">2: 21.2 km, 38 min</span></div>
+        </div>
+        <div class="routebox">
+          <span class="head">Podľa trasy 2: 21.2 km, 38 min</span>
+          <div class="field">
+            <label for="p-end">Koniec</label>
+            <div class="input" id="p-end"><span>05.11.2026 15:30</span><span class="gps">Teraz</span></div>
+          </div>
+          <div class="field">
+            <label for="p-start">Začiatok</label>
+            <div class="input focus" id="p-start"><span>05.11.2026 14:52</span></div>
+            <span class="note">koniec - 38 min jazdy podľa trasy</span>
+          </div>
+          <div class="field">
+            <label for="p-km">Vzdialenosť (km)</label>
+            <div class="input focus" id="p-km"><span>21</span></div>
+            <span class="note">podľa trasy, môžete prepísať</span>
+          </div>
+        </div>
+        <div class="field">
+          <label for="p-purpose">Účel</label>
+          <div class="input" id="p-purpose"><span class="hint">služobná cesta</span></div>
+        </div>
+        <div class="save">Uložiť jazdu</div>
+      </div>
+    </div>
+    <ul class="ann">
+      <li>A tap on the chip "2" or on the grey line selects route 2. The map swaps the colours, and the map does not zoom again.</li>
+      <li>"Začiatok" and the km take the values of route 2: 15:30 - 38 min = 14:52, and 21.2 km rounded to 21. The backend computes both (ADR-008). A value that you typed stays.</li>
+      <li>"Uložiť jazdu" saves the trip, then the chosen route (command <code>save_manual_trip_route</code>, a second write after the trip commit). The trip detail (screen 3) then shows this route.</li>
+      <li>The stored route keeps the trip km as its target, so a typed km shows as a deviation on the map, as on /mapa.</li>
+      <li>If the trip saves but the route does not, the trip stays and a message says that the route was not saved, as on the Fuelio add page.</li>
+      <li>The "avoid paid roads" checkboxes of a Sygic route stay on the PC /mapa page.</li>
+    </ul>
+  </section>
+
+</div>
+<script>
+(function () {
+  /* Outside claude.ai (a local file, GitHub Pages, a raw-HTML proxy) the page nav uses the
+     repo files next to this one; on claude.ai it keeps the artifact links. */
+  var h = location.hostname;
+  if (location.protocol === "file:" || /github\.io$|githack\.com$/.test(h)) {
+    var links = document.querySelectorAll("a[data-file]");
+    for (var i = 0; i < links.length; i++) links[i].href = links[i].getAttribute("data-file");
+  }
+})();
+</script>
+</body>
+</html>

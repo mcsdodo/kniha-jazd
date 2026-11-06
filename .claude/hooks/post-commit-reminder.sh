@@ -13,11 +13,25 @@ if ! echo "$input" | grep -q '"command"[^}]*git commit'; then
     exit 0
 fi
 
-# Skip if this is a changelog commit
-if echo "$input" | grep -qi '"command"[^}]*changelog'; then
-    exit 0
+msg=""
+
+# Mockup reminder: the commit at HEAD changed a screen (a page or a component) and
+# no mockup file in docs/mockups/. It only reminds: an invisible change needs no
+# mockup. See .claude/skills/mockup-skill/SKILL.md.
+head_files=$(git -C "${CLAUDE_PROJECT_DIR:-.}" diff-tree --no-commit-id --name-only -r HEAD 2>/dev/null)
+ui_files=$(echo "$head_files" | grep -E '^src/(routes|lib/components)/.*\.svelte$' | head -5)
+if [ -n "$ui_files" ] && ! echo "$head_files" | grep -qE '^docs/mockups/.*\.html$'; then
+    msg="REMINDER: This commit changed a screen ($(echo "$ui_files" | tr '\n' ' ')). If the change is visible, update the mockup file of the page in docs/mockups/ and publish it (mockup skill)."
 fi
 
+# Changelog reminder, except for a changelog commit
+if ! echo "$input" | grep -qi '"command"[^}]*changelog'; then
+    msg="${msg:+$msg
+}REMINDER: If this was a user-visible change, run /changelog. Skip for internal docs (CLAUDE.md, _tasks/, etc.)"
+fi
+
+[ -z "$msg" ] && exit 0
+
 # Exit code 2 with stderr = blocking message shown to Claude
-echo "REMINDER: If this was a user-visible change, run /changelog. Skip for internal docs (CLAUDE.md, _tasks/, etc.)" >&2
+echo "$msg" >&2
 exit 2

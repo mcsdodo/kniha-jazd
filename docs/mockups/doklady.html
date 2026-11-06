@@ -1,0 +1,495 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Kniha jázd PC: Doklady</title>
+<style>
+/* ===== Shared PC mockup CSS (copy this block to every PC mockup) =====
+   The colour variables copy src/lib/theme.css. The frames stack vertically. */
+:root {
+  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, "Open Sans", "Helvetica Neue", sans-serif;
+  --page-bg: #e9edf0; --page-ink: #2c3e50; --page-muted: #6b7a80;
+  --bg-body: #f5f5f5; --bg-surface: #ffffff; --bg-surface-alt: #fafafa; --bg-header: #2c3e50;
+  --text-primary: #2c3e50; --text-secondary: #7f8c8d; --text-muted: #95a5a6;
+  --text-on-header: #ffffff; --text-on-header-muted: rgba(255,255,255,0.7);
+  --border-default: #e0e0e0; --border-input: #d5dbdb; --shadow-default: rgba(0,0,0,0.1);
+  --accent-primary: #3498db; --accent-success: #27ae60; --accent-success-bg: #e8f8e8;
+  --accent-warning: #d39e00; --accent-danger: #c0392b; --accent-danger-bg: #fee;
+  --input-bg: #ffffff; --btn-secondary-bg: #ecf0f1;
+  --toast-success-bg: #d4edda; --toast-success-color: #155724; --toast-success-border: #c3e6cb;
+  --toast-error-bg: #f8d7da; --toast-error-color: #721c24; --toast-error-border: #f5c6cb;
+  --toast-info-bg: #d1ecf1; --toast-info-color: #0c5460; --toast-info-border: #bee5eb;
+  --warning-bg: #fff3cd; --warning-color: #856404; --warning-border: #ffc107;
+  --badge-danger-bg: #e74c3c; --overlay-bg: rgba(0,0,0,0.5);
+  --accent-primary-light-bg: #ebf5fb; --editing-row-bg: #e3f2fd; --accent-warning-dark: #e67e22;
+  --consumption-warn-bg: #fff3e0;
+  --badge-ice-bg: #e3f2fd; --badge-ice-color: #1565c0; --badge-bev-bg: #e8f5e9; --badge-bev-color: #2e7d32;
+  --badge-phev-bg: #fff3e0; --badge-phev-color: #e65100;
+  --prop: #e67e22; --prop-bg: #fdf0e1;
+  color-scheme: light;
+}
+:root[data-theme="dark"] {
+  --page-bg: #0d0f10; --page-ink: #e0e0e0; --page-muted: #9aa4a8;
+  --bg-body: #121212; --bg-surface: #1e1e1e; --bg-surface-alt: #252525; --bg-header: #1e1e1e;
+  --text-primary: #e0e0e0; --text-secondary: #a0a0a0; --text-muted: #707070;
+  --text-on-header: #e0e0e0; --text-on-header-muted: rgba(255,255,255,0.6);
+  --border-default: #333333; --border-input: #404040; --shadow-default: rgba(0,0,0,0.3);
+  --accent-primary: #5dade2; --accent-success: #58d68d; --accent-success-bg: #1e3d1e;
+  --accent-warning: #f4d03f; --accent-danger: #ec7063; --accent-danger-bg: #3d2020;
+  --input-bg: #2a2a2a; --btn-secondary-bg: #333333;
+  --toast-success-bg: #1e3a1e; --toast-success-color: #58d68d; --toast-success-border: #2a4a2a;
+  --toast-error-bg: #3d2020; --toast-error-color: #ec7063; --toast-error-border: #5a2a2a;
+  --toast-info-bg: #1a3a4a; --toast-info-color: #5dade2; --toast-info-border: #254a5a;
+  --warning-bg: #3d3520; --warning-color: #f4d03f; --warning-border: #8a7020;
+  --accent-primary-light-bg: #1a2a3a; --editing-row-bg: #1a2a3a; --consumption-warn-bg: #3a2a1a;
+  --badge-ice-bg: #1a2a3a; --badge-ice-color: #64b5f6; --badge-bev-bg: #1e3a1e; --badge-bev-color: #81c784;
+  --badge-phev-bg: #3a2a1a; --badge-phev-color: #ffb74d;
+  --prop: #f0a04a; --prop-bg: #3a2a18;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--page-bg); color: var(--page-ink); font-family: var(--font-sans); font-size: 15px; line-height: 1.45; }
+code { font-size: 0.9em; }
+a { color: var(--accent-primary); }
+header.page { padding: 24px 24px 8px; max-width: 1240px; margin: 0 auto; }
+header.page h1 { margin: 0 0 4px; font-size: 1.5rem; text-wrap: balance; }
+header.page p { margin: 4px 0; color: var(--page-muted); max-width: 80ch; }
+.pagenav { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 0.9rem; margin-top: 8px; align-items: center; }
+.pagenav .here { font-weight: 700; color: var(--page-ink); }
+.themebtn { margin-left: auto; font: inherit; font-size: 0.85rem; border: 1px solid var(--page-muted); background: transparent; color: var(--page-ink); border-radius: 6px; padding: 3px 10px; cursor: pointer; }
+.frames { display: flex; flex-direction: column; gap: 36px; padding: 16px 24px 48px; max-width: 1240px; margin: 0 auto; }
+.frame { display: flex; flex-direction: column; gap: 10px; }
+.frame > h2 { margin: 0; font-size: 0.85rem; letter-spacing: 0.06em; text-transform: uppercase; color: var(--page-muted); }
+.window { width: 100%; max-width: 1180px; border: 1px solid var(--border-default); border-radius: 8px; overflow: hidden; background: var(--bg-body); color: var(--text-primary); box-shadow: 0 6px 18px rgba(0,0,0,0.10); position: relative; font-size: 14px; }
+.window .content { padding: 16px 20px; display: flex; flex-direction: column; gap: 14px; }
+.ann { font-size: 0.9rem; color: var(--page-muted); margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 4px; max-width: 95ch; }
+.ann li::marker { color: var(--accent-primary); }
+.ann b, .ann code { color: var(--page-ink); }
+.ann li.prop::marker { color: var(--prop); }
+.ann li.prop b { color: var(--prop); }
+/* Proposal mark: a frame or an element changed by a task, not built yet */
+.open { border: 2px dashed var(--prop); border-radius: 8px; padding: 6px 8px; }
+.open > .tag, .tag.prop { display: inline-block; font-size: 0.72rem; font-weight: 700; color: var(--prop); background: var(--prop-bg); text-transform: uppercase; letter-spacing: 0.05em; padding: 1px 6px; border-radius: 4px; }
+/* App header */
+.apphdr { background: var(--bg-header); color: var(--text-on-header); padding: 10px 20px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; box-shadow: 0 2px 4px var(--shadow-default); }
+.apphdr .left { display: flex; align-items: center; gap: 8px 24px; flex-wrap: wrap; }
+.apphdr .title { font-size: 1.3rem; font-weight: 600; padding: 4px 12px; border-radius: 4px; }
+.apphdr nav { display: flex; gap: 4px; flex-wrap: wrap; }
+.apphdr nav span { color: var(--text-on-header-muted); padding: 6px 12px; border-radius: 4px; font-weight: 500; white-space: nowrap; }
+.apphdr .on { background: rgba(255,255,255,0.2); color: var(--text-on-header) !important; }
+.apphdr .right { display: flex; gap: 14px; align-items: center; font-size: 0.9rem; }
+.apphdr .sel { background: var(--input-bg); color: var(--text-primary); border-radius: 4px; padding: 4px 8px; margin-left: 6px; border: 1px solid var(--border-input); }
+.badge-count { display: inline-block; min-width: 18px; padding: 0 5px; margin-left: 6px; border-radius: 9px; background: var(--badge-danger-bg); color: #fff; font-size: 0.72rem; font-weight: 700; text-align: center; line-height: 18px; }
+.banner-ro { display: flex; gap: 10px; align-items: center; padding: 10px 16px; background: var(--warning-bg); border-bottom: 1px solid var(--warning-border); color: var(--warning-color); font-weight: 500; }
+/* Generic app parts */
+.card { background: var(--bg-surface); border-radius: 8px; padding: 16px; box-shadow: 0 1px 3px var(--shadow-default); display: flex; flex-direction: column; gap: 12px; }
+.card h3 { margin: 0; font-size: 1.15rem; }
+.row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.spread { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; }
+.btn { display: inline-block; padding: 7px 14px; border-radius: 4px; font-weight: 500; font-size: 0.9rem; background: var(--btn-secondary-bg); color: var(--text-primary); border: 1px solid transparent; white-space: nowrap; }
+.btn.primary { background: var(--accent-primary); color: #fff; }
+.btn.success { background: var(--accent-success); color: #fff; }
+.btn.danger { background: var(--accent-danger); color: #fff; }
+.btn.ghost { background: transparent; border-color: var(--border-input); }
+.btn.dis { opacity: 0.45; }
+.btn.sm { padding: 4px 10px; font-size: 0.82rem; }
+.input { display: inline-flex; align-items: center; justify-content: space-between; gap: 6px; border: 1px solid var(--border-input); border-radius: 4px; padding: 5px 8px; background: var(--input-bg); min-width: 60px; font-variant-numeric: tabular-nums; }
+.input.focus { border-color: var(--accent-primary); box-shadow: 0 0 0 2px rgba(52,152,219,0.15); }
+.input.bad { border-color: var(--accent-danger); }
+.hint { color: var(--text-secondary); font-size: 0.85rem; }
+.muted { color: var(--text-secondary); }
+.warn-text { color: var(--accent-warning-dark); font-weight: 600; }
+.err-text { color: var(--accent-danger); }
+.ok-text { color: var(--accent-success); }
+.pill { display: inline-block; padding: 1px 8px; border-radius: 999px; font-size: 0.78rem; font-weight: 600; white-space: nowrap; }
+.pill.ok { background: var(--accent-success-bg); color: var(--accent-success); }
+.pill.bad { background: var(--accent-danger-bg); color: var(--accent-danger); }
+.pill.warn { background: var(--warning-bg); color: var(--warning-color); }
+.pill.info { background: var(--accent-primary-light-bg); color: var(--accent-primary); }
+.chk { display: inline-flex; gap: 6px; align-items: center; }
+.box { display: inline-block; width: 14px; height: 14px; border: 1px solid var(--border-input); border-radius: 3px; background: var(--input-bg); vertical-align: middle; position: relative; }
+.box.on { background: var(--accent-primary); border-color: var(--accent-primary); }
+.box.on::after { content: ""; position: absolute; left: 4px; top: 1px; width: 4px; height: 8px; border: solid #fff; border-width: 0 2px 2px 0; transform: rotate(45deg); }
+.seg { display: inline-flex; border: 1px solid var(--border-input); border-radius: 4px; overflow: hidden; font-size: 0.82rem; }
+.seg span { padding: 4px 10px; }
+.seg span.on { background: var(--accent-primary); color: #fff; }
+.toast { position: absolute; top: 12px; right: 12px; z-index: 5; display: flex; gap: 10px; align-items: center; padding: 10px 14px; border-radius: 6px; border: 1px solid; font-size: 0.9rem; box-shadow: 0 4px 12px var(--shadow-default); }
+.toast.ok { background: var(--toast-success-bg); color: var(--toast-success-color); border-color: var(--toast-success-border); }
+.toast.err { background: var(--toast-error-bg); color: var(--toast-error-color); border-color: var(--toast-error-border); }
+.toast.info { background: var(--toast-info-bg); color: var(--toast-info-color); border-color: var(--toast-info-border); }
+.toast .act { font-weight: 700; text-decoration: underline; }
+.dim { position: relative; }
+.dim::after { content: ""; position: absolute; inset: 0; background: var(--overlay-bg); z-index: 2; }
+.modal { position: absolute; left: 50%; top: 40px; transform: translateX(-50%); z-index: 3; background: var(--bg-surface); color: var(--text-primary); border-radius: 8px; box-shadow: 0 10px 30px rgba(0,0,0,0.3); padding: 18px 20px; display: flex; flex-direction: column; gap: 12px; width: 520px; max-width: 92%; }
+.modal h4 { margin: 0; font-size: 1.15rem; display: flex; justify-content: space-between; }
+.modal .foot { display: flex; justify-content: flex-end; gap: 8px; margin-top: 4px; }
+.mapbox { height: 220px; border-radius: 6px; border: 1px solid var(--border-default); position: relative; overflow: hidden; background: linear-gradient(135deg, color-mix(in srgb, var(--accent-success) 10%, var(--bg-surface)), color-mix(in srgb, var(--accent-primary) 10%, var(--bg-surface))); }
+.mapbox svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+.tbl { width: 100%; border-collapse: collapse; font-size: 0.85rem; font-variant-numeric: tabular-nums; }
+.tbl th, .tbl td { padding: 5px 6px; text-align: left; border-bottom: 1px solid var(--border-default); white-space: nowrap; }
+.tbl th { background: var(--bg-surface-alt); font-weight: 600; color: var(--text-secondary); }
+.tbl td.n, .tbl th.n { text-align: right; }
+.open-points { border: 1px solid var(--border-default); border-radius: 8px; padding: 12px 16px; background: var(--bg-surface); color: var(--text-primary); }
+.open-points h2 { margin: 0 0 6px; font-size: 1rem; }
+/* ===== End of the shared CSS ===== */
+
+/* Page-specific: Doklady */
+.dk { max-width: 800px; width: 100%; margin: 0 auto; display: flex; flex-direction: column; gap: 14px; }
+.dk-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
+.dk-head h1 { margin: 0; font-size: 1.7rem; color: var(--text-primary); }
+.dk-btn { display: inline-block; padding: 0.6rem 1.3rem; border-radius: 4px; font-weight: 500; background: var(--accent-primary); color: #fff; white-space: nowrap; }
+.dk-btn.dis { opacity: 0.6; }
+.bsm { display: inline-block; padding: 0.4rem 0.85rem; border-radius: 4px; font-size: 0.85rem; background: var(--btn-secondary-bg); color: var(--text-primary); white-space: nowrap; border: 1px solid transparent; }
+.bsm.primary { background: var(--accent-primary); color: #fff; }
+.bsm.warning { background: var(--warning-bg); color: var(--warning-color); border-color: var(--warning-border); }
+.bsm.danger { background: var(--accent-danger-bg); color: var(--accent-danger); }
+.rcard { background: var(--bg-surface); border-radius: 8px; padding: 14px 16px; box-shadow: 0 1px 3px var(--shadow-default); }
+.rcard.unmatched { border-left: 3px solid var(--accent-danger); background: var(--bg-surface-alt); }
+.rhead { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; gap: 10px; }
+.rtitle { display: flex; align-items: center; gap: 8px; font-weight: 500; }
+.rbadges { display: flex; gap: 8px; align-items: center; }
+.rb { padding: 3px 8px; border-radius: 3px; font-size: 0.75rem; font-weight: 600; white-space: nowrap; }
+.rb.success { background: var(--toast-success-bg); color: var(--toast-success-color); }
+.rb.danger { background: var(--toast-error-bg); color: var(--toast-error-color); }
+.rb.override { background: var(--warning-bg); color: var(--text-primary); border: 1px solid var(--warning-border); }
+.rdet { display: grid; grid-template-columns: repeat(2, 1fr); gap: 6px; margin-bottom: 10px; }
+.rdet .lab { color: var(--text-secondary); font-size: 0.875rem; margin-right: 8px; }
+.rdet .val { font-weight: 500; font-variant-numeric: tabular-nums; }
+.racts { display: flex; gap: 8px; justify-content: flex-end; }
+.ph { color: var(--text-secondary); font-style: italic; text-align: center; padding: 26px; margin: 0; }
+.empty { display: flex; flex-direction: column; align-items: center; gap: 14px; padding: 36px 12px; text-align: center; color: var(--text-secondary); }
+.cfgwarn { background: var(--warning-bg); border: 1px solid var(--warning-border); padding: 14px; border-radius: 8px; }
+.cfgwarn .wi { font-size: 2rem; margin-bottom: 6px; }
+.cfgwarn p { margin: 6px 0; }
+.states { display: grid; grid-template-columns: 1fr 1fr; gap: 1px; background: var(--border-default); }
+.states > div { background: var(--bg-body); padding: 14px 18px; display: flex; flex-direction: column; gap: 10px; }
+.states .cap { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); }
+/* Trip selector modal */
+.tsm { width: 750px; padding: 22px 24px; gap: 0; }
+.tsm h2 { margin: 0 0 14px; font-size: 1.25rem; }
+.rinfo { background: var(--bg-surface-alt); padding: 10px 12px; border-radius: 4px; margin-bottom: 14px; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.rinfo .sep { color: var(--text-muted); }
+.tlist { display: flex; flex-direction: column; gap: 8px; }
+.titem { display: flex; gap: 16px; padding: 10px 12px; border: 1px solid var(--border-input); border-radius: 4px; background: var(--bg-surface); align-items: center; }
+.titem.hl { border-color: var(--accent-primary); background: var(--accent-primary-light-bg); }
+.titem.dis { opacity: 0.5; }
+.titem .d { font-weight: 500; min-width: 90px; }
+.titem .r { flex: 1; }
+.titem .ex { color: var(--text-secondary); font-size: 0.875rem; }
+.titem .mi { font-size: 0.875rem; font-weight: 500; white-space: nowrap; }
+.titem .mi.exact { color: var(--accent-success); }
+.titem .mi.date { color: var(--text-secondary); }
+.tfoot { margin-top: 14px; display: flex; justify-content: flex-end; gap: 8px; }
+.selinfo { background: var(--bg-surface-alt); padding: 10px 12px; border-radius: 4px; margin-bottom: 14px; display: flex; gap: 16px; align-items: center; }
+.selinfo .d { font-weight: 500; }
+.topts { display: flex; flex-direction: column; gap: 8px; margin-bottom: 4px; }
+.topt { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border: 2px solid var(--border-input); border-radius: 6px; }
+.topt.on { border-color: var(--accent-primary); background: var(--accent-primary-light-bg); }
+.topt .ic { font-size: 1.25rem; }
+.topt .lb { font-weight: 500; }
+.radio { width: 14px; height: 14px; border-radius: 50%; border: 1px solid var(--border-input); background: var(--input-bg); display: inline-block; position: relative; }
+.radio.on { border-color: var(--accent-primary); }
+.radio.on::after { content: ""; position: absolute; inset: 3px; border-radius: 50%; background: var(--accent-primary); }
+.mmw { background: var(--warning-bg); border: 1px solid var(--warning-border); border-radius: 6px; padding: 14px; margin-top: 14px; }
+.mmw .wh { display: flex; align-items: center; gap: 8px; font-weight: 600; color: var(--warning-color); margin-bottom: 6px; }
+.mmw .wh .wi { font-size: 1.25rem; }
+.mmw .det { font-size: 0.875rem; margin-bottom: 14px; }
+.mmw .acts { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+.cm { width: 400px; padding: 22px 24px; gap: 0; }
+.cm h2 { margin: 0 0 14px; font-size: 1.25rem; }
+.cm p { margin: 6px 0 22px; }
+.cm .acts { display: flex; gap: 8px; justify-content: flex-end; }
+.tstack { display: flex; flex-direction: column; gap: 8px; align-items: flex-end; padding: 16px; }
+.tstack .toast { position: static; max-width: 400px; }
+</style>
+</head>
+<body>
+<header class="page">
+  <h1>Kniha jázd on the PC: Doklady (current state)</h1>
+  <p>The invoice page at <code>/doklady</code> and its two dialogs, as they work on <code>main</code>. The example data is invented. The UI text is Slovak, as in the app. The notes under each frame say what the screen does.</p>
+  <p>The source is <code>docs/mockups/doklady.html</code> in the repo. Its git history shows when the page changed.</p>
+  <p>An orange dashed box with the tag "Návrh (task NN)" marks a proposal that is not built yet. This page has no open proposal.</p>
+  <div class="pagenav" id="pagenav">
+    <a href="https://claude.ai/artifact/PCbcTRe6EybiezMCqH8rm2" data-file="jazdy.html">Jazdy</a>
+    <span class="here">Doklady</span>
+    <a href="https://claude.ai/artifact/RgyA56LvfFjRHpgMcYG3ku" data-file="fuelio.html">Fuelio</a><a href="https://claude.ai/artifact/F3fXHbFEaERHHcKC4tr215" data-file="mapa.html">Mapa</a><a href="https://claude.ai/artifact/T2jiZ3ZLGs9s1F89UZP9eE" data-file="miesta.html">Miesta</a><a href="https://claude.ai/artifact/F5fCz7wgrunXAyQ5rRw1AJ" data-file="nastavenia.html">Nastavenia</a><a href="https://claude.ai/artifact/TyYTKii3cU4ryvN98giUGW" data-file="mobil.html">Mobil</a>
+    <button class="themebtn" type="button" id="themebtn">Dark / light</button>
+  </div>
+</header>
+
+<div class="frames">
+
+  <!-- 1. Invoice list -->
+  <section class="frame">
+    <h2>1. Invoice list (Paperless-ngx documents of the year)</h2>
+    <div class="window">
+      <div class="apphdr">
+        <div class="left">
+          <span class="title">Kniha Jázd</span>
+          <nav><span class="on">Doklady<span class="badge-count">1</span></span><span>Miesta</span><span>Fuelio</span><span>Nastavenia</span></nav>
+        </div>
+        <div class="right">
+          <span>Vozidlo:<span class="sel">Škoda Octavia (BA123XY) v</span></span>
+          <span>Rok:<span class="sel">2026 v</span></span>
+        </div>
+      </div>
+      <div class="content">
+        <div class="dk">
+          <div class="dk-head"><h1>Doklady</h1><span class="dk-btn">Obnoviť z Paperless</span></div>
+
+          <div class="rcard">
+            <div class="rhead"><span class="rtitle"><span>⛽</span>Bloček PHM 29.10.2026</span><div class="rbadges"><span class="rb success">Priradený</span></div></div>
+            <div class="rdet">
+              <div><span class="lab">Dátum:</span><span class="val">29. 10. 2026 09:52</span></div>
+              <div><span class="lab">Cena:</span><span class="val">89.40 €</span></div>
+              <div><span class="lab">Litre:</span><span class="val">54.51 L</span></div>
+            </div>
+            <div class="racts"><span class="bsm">Otvoriť v Paperless</span><span class="bsm">Zrušiť priradenie</span></div>
+          </div>
+
+          <div class="rcard unmatched">
+            <div class="rhead"><span class="rtitle"><span>⛽</span>Bloček PHM 31.10.2026</span><div class="rbadges"><span class="rb danger">Nepriradený</span></div></div>
+            <div class="rdet">
+              <div><span class="lab">Dátum:</span><span class="val">31. 10. 2026 16:05</span></div>
+              <div><span class="lab">Cena:</span><span class="val">58.12 €</span></div>
+              <div><span class="lab">Litre:</span><span class="val">35.44 L</span></div>
+            </div>
+            <div class="racts"><span class="bsm">Otvoriť v Paperless</span><span class="bsm primary">Prideliť k jazde</span></div>
+          </div>
+
+          <div class="rcard">
+            <div class="rhead"><span class="rtitle"><span>📄</span>Parkovanie Poprad</span><div class="rbadges"><span class="rb success">Priradený</span><span class="rb override">Potvrdené napriek nezhode</span></div></div>
+            <div class="rdet">
+              <div><span class="lab">Dátum:</span><span class="val">30. 10. 2026 11:02</span></div>
+              <div><span class="lab">Cena:</span><span class="val">12.00 €</span></div>
+              <div><span class="lab">Litre:</span><span class="val">-</span></div>
+            </div>
+            <div class="racts"><span class="bsm">Otvoriť v Paperless</span><span class="bsm">Zrušiť priradenie</span><span class="bsm">Zrušiť potvrdenie</span></div>
+          </div>
+
+          <div class="rcard unmatched">
+            <div class="rhead"><span class="rtitle"><span>📄</span>Umývanie auta</span><div class="rbadges"><span class="rb danger">Nepriradený</span></div></div>
+            <div class="rdet">
+              <div><span class="lab">Dátum:</span><span class="val">?</span></div>
+              <div><span class="lab">Cena:</span><span class="val">9.90 €</span></div>
+              <div><span class="lab">Litre:</span><span class="val">-</span></div>
+            </div>
+            <div class="racts"><span class="bsm">Otvoriť v Paperless</span><span class="bsm primary">Prideliť k jazde</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <ul class="ann">
+      <li>The page loads the list with <code>get_paperless_invoices</code> (vehicle, year). It loads again when the vehicle or the year changes, and on "Obnoviť z Paperless". The button is disabled while the list loads.</li>
+      <li>The backend reads the Paperless documents with the tag <code>fuel</code> or <code>car</code>, in pages of 100. It keeps the documents of the selected year: the year of <code>receipt_datetime</code>, else the year of the Paperless "created" date.</li>
+      <li>The page does not sort the list. The backend sends no ordering to Paperless, so the order is the Paperless default.</li>
+      <li>The tag sets the type: <code>fuel</code> gives ⛽ (Fuel), <code>car</code> gives 📄 (Other). A document with both tags is Fuel.</li>
+      <li>The backend ignores the vehicle (single-vehicle scope). Each vehicle sees the same documents and the same "Priradený" state.</li>
+      <li>"Priradený" (green) means a link to a trip exists. "Nepriradený" (red badge, red left border) means no link. The card does not say which trip holds the link.</li>
+      <li>"Potvrdené napriek nezhode" shows on a linked card when the user picked "Priradiť a potvrdiť" (frame 4b). "Zrušiť potvrdenie" clears the flag with <code>revert_paperless_override</code>, with no confirm step.</li>
+      <li>"Dátum:" shows the date and time from the custom field <code>receipt_datetime</code>, or "?" when it is not set. "Cena:" is the <code>total_amount</code> field. "Litre:" shows only for a Fuel card with <code>litres</code> set, else "-".</li>
+      <li>"Otvoriť v Paperless" opens <code>&lt;Paperless URL&gt;/documents/&lt;id&gt;/</code> in a new tab. The app never edits the document.</li>
+      <li>"Prideliť k jazde" shows only on an unlinked card and opens the trip picker (frame 3). A linked card must be unlinked first ("Zrušiť priradenie", frame 5) before it can go to another trip.</li>
+      <li>The red nav count counts only the unlinked <b>Fuel</b> documents (<code>count_unlinked_paperless_fuel_invoices</code>). Here it is 1, though two cards are "Nepriradený". An assign or an unassign refreshes the count.</li>
+    </ul>
+  </section>
+
+  <!-- 2. States -->
+  <section class="frame">
+    <h2>2. Loading, not configured, error, empty</h2>
+    <div class="window">
+      <div class="states">
+        <div>
+          <span class="cap">a. Loading</span>
+          <div class="dk-head"><h1>Doklady</h1><span class="dk-btn dis">Obnoviť z Paperless</span></div>
+          <p class="ph">Načítavam...</p>
+        </div>
+        <div>
+          <span class="cap">b. Paperless not configured</span>
+          <div class="dk-head"><h1>Doklady</h1><span class="dk-btn">Obnoviť z Paperless</span></div>
+          <div class="empty"><span>Paperless-ngx nie je nastavený.</span><span class="dk-btn">Otvoriť nastavenia</span></div>
+        </div>
+        <div>
+          <span class="cap">c. Other error</span>
+          <div class="dk-head"><h1>Doklady</h1><span class="dk-btn">Obnoviť z Paperless</span></div>
+          <div class="cfgwarn"><div class="wi">⚠</div><p>Error: Tag 'fuel' not found in Paperless</p></div>
+          <p class="ph">Žiadne doklady.</p>
+        </div>
+        <div>
+          <span class="cap">d. No documents (or no vehicle)</span>
+          <div class="dk-head"><h1>Doklady</h1><span class="dk-btn">Obnoviť z Paperless</span></div>
+          <p class="ph">Žiadne doklady.</p>
+        </div>
+      </div>
+    </div>
+    <ul class="ann">
+      <li>a. "Načítavam..." is plain italic text. The page has no skeleton loader.</li>
+      <li>b. The backend returns <code>NotConfigured</code> when the Paperless URL or the API token is empty. The page matches the text "NotConfigured" and shows this state in place of an error. "Otvoriť nastavenia" opens <code>/settings</code>.</li>
+      <li>c. Each other error shows the raw error text in a yellow box. The text is English, from <code>PaperlessError</code> in <code>paperless.rs</code>, with the prefix "Error: ". Examples: "Tag 'fuel' not found in Paperless", "Custom field '...' not found in Paperless", "Paperless returned status 401", "Network error: ...".</li>
+      <li>c. The list is empty after an error, so "Žiadne doklady." shows under the box too.</li>
+      <li>d. "Žiadne doklady." shows when the year has no document. It also shows with no active vehicle: the page then does not call the backend.</li>
+    </ul>
+  </section>
+
+  <!-- 3. Trip picker step 1 -->
+  <section class="frame">
+    <h2>3. Trip picker, step 1: "Prideliť doklad k jazde"</h2>
+    <div class="window" style="height:560px">
+      <div class="content dim" style="height:100%">
+        <div class="dk"><div class="dk-head"><h1>Doklady</h1><span class="dk-btn">Obnoviť z Paperless</span></div></div>
+      </div>
+      <div class="modal tsm">
+        <h2>Prideliť doklad k jazde</h2>
+        <div class="rinfo"><b>Bloček PHM 31.10.2026</b><span class="sep">|</span><span>35.44 L</span><span class="sep">|</span><span>58.12 EUR</span><span class="sep">|</span><span>31. 10. 2026</span></div>
+        <div class="tlist">
+          <div class="titem hl"><span class="d">31. 10. 2026</span><span class="r">Kancelária → Čerpacia stanica D1</span><span class="mi exact">✓ zodpovedá dokladu</span></div>
+          <div class="titem hl"><span class="d">31. 10. 2026</span><span class="r">Čerpacia stanica D1 → Domov</span><span class="mi date">~ rovnaký dátum</span></div>
+          <div class="titem hl"><span class="d">2. 11. 2026</span><span class="r">Sklad → Kancelária</span><span class="ex">⚠ všetko sa líši</span></div>
+          <div class="titem hl"><span class="d">30. 10. 2026</span><span class="r">Klient Poprad → Kancelária</span><span class="ex">⚠ iný dátum</span></div>
+          <div class="titem hl"><span class="d">30. 10. 2026</span><span class="r">Kancelária → Klient Poprad</span><span class="ex">⚠ iný dátum</span></div>
+          <div class="titem hl dis"><span class="d">29. 10. 2026</span><span class="r">Sklad → Čerpacia stanica D1</span><span class="ex">⚠ Jazda už má doklad o tankovaní</span></div>
+        </div>
+        <div class="tfoot"><span class="bsm">Zrušiť</span></div>
+      </div>
+    </div>
+    <ul class="ann">
+      <li>The list comes from <code>get_trips_for_paperless_assignment</code> (document id, vehicle, year). The backend fetches the document from Paperless again and does not trust data from the page.</li>
+      <li>The info bar shows the title, the liters, the price in "EUR" and the date. A missing value shows "??", so an Other document shows "?? L".</li>
+      <li>The list holds all trips of the vehicle and year. The page sorts them by the distance between the trip date and the document date. With no document date, the order stays as the backend sends it.</li>
+      <li>A blue border marks a trip within 3 days of the document date.</li>
+      <li>"✓ zodpovedá dokladu": the document time is inside the trip, and the trip liters and price (Fuel) or the other costs (Other) are equal. It also shows when the trip has no value to compare and the time is inside the trip.</li>
+      <li>"~ rovnaký dátum": the trip has no value to compare, and the document time is on the trip day but outside the trip time. Step 2 then shows a mismatch (frame 4b).</li>
+      <li>"⚠ &lt;reason&gt;": the data differs. The reason is one of "iný dátum", "čas mimo jazdy", "iné litre", "iná cena", the pairs of these, or "všetko sa líši". The hover tooltip shows the values, for example "Litre: doklad 35.44 L – jazda 30.00 L".</li>
+      <li>A trip with no marker has nothing to compare and the document has no date.</li>
+      <li>A grey trip ("⚠ Jazda už má doklad o tankovaní") cannot take a document: it already has a Fuel document, and this document has liters. A trip holds a maximum of one Fuel document and any number of Other documents.</li>
+      <li>For an Other document, a trip that already has an Other document skips the price check: the backend adds the new amount to the trip.</li>
+      <li>A click on an active trip opens step 2. "Zrušiť", Esc or a click outside the dialog closes it. Other texts: "Načítavam jazdy...", "Žiadne jazdy na pridelenie.", "Nepodarilo sa načítať jazdy".</li>
+    </ul>
+  </section>
+
+  <!-- 4. Trip picker step 2 -->
+  <section class="frame">
+    <h2>4. Trip picker, step 2: "Priradiť ako" (a: data agrees, b: data differs)</h2>
+    <div class="window" style="height:360px">
+      <div class="content dim" style="height:100%">
+        <div class="dk"><div class="dk-head"><h1>Doklady</h1><span class="dk-btn">Obnoviť z Paperless</span></div></div>
+      </div>
+      <div class="modal tsm">
+        <h2>Priradiť ako</h2>
+        <div class="selinfo"><span class="d">31. 10. 2026</span><span>Kancelária → Čerpacia stanica D1</span></div>
+        <div class="topts">
+          <div class="topt on"><span class="radio on"></span><span class="ic">⛽</span><span class="lb">Tankovanie (PHM)</span></div>
+          <div class="topt"><span class="radio"></span><span class="ic">📄</span><span class="lb">Iné náklady</span></div>
+        </div>
+        <div class="tfoot"><span class="bsm">Zrušiť</span><span class="bsm primary">Priradiť</span></div>
+      </div>
+    </div>
+    <div class="window" style="height:470px">
+      <div class="content dim" style="height:100%">
+        <div class="dk"><div class="dk-head"><h1>Doklady</h1><span class="dk-btn">Obnoviť z Paperless</span></div></div>
+      </div>
+      <div class="modal tsm">
+        <h2>Priradiť ako</h2>
+        <div class="selinfo"><span class="d">31. 10. 2026</span><span>Čerpacia stanica D1 → Domov</span></div>
+        <div class="topts">
+          <div class="topt on"><span class="radio on"></span><span class="ic">⛽</span><span class="lb">Tankovanie (PHM)</span></div>
+          <div class="topt"><span class="radio"></span><span class="ic">📄</span><span class="lb">Iné náklady</span></div>
+        </div>
+        <div class="mmw">
+          <div class="wh"><span class="wi">⚠</span><span>Údaje nesúhlasia</span></div>
+          <div class="det">Čas dokladu 16:05 – jazda 16:25–16:58</div>
+          <div class="acts"><span class="bsm">Zrušiť</span><span class="bsm warning">Priradiť s varovaním</span><span class="bsm primary">Priradiť a potvrdiť</span></div>
+        </div>
+      </div>
+    </div>
+    <ul class="ann">
+      <li>The radio starts on the type of the document: "⛽ Tankovanie (PHM)" for Fuel, "📄 Iné náklady" for Other. The user can change it.</li>
+      <li>a. With no mismatch, "Priradiť" calls <code>assign_paperless_invoice</code> with the type and <code>mismatchOverride = false</code>.</li>
+      <li>b. With a mismatch, the yellow box "⚠ Údaje nesúhlasia" lists the values that differ: the time ("Čas dokladu ... – jazda ..."), the liters and the price.</li>
+      <li>b. "Priradiť s varovaním" links the document with <code>mismatchOverride = false</code>. The grid then keeps its warning.</li>
+      <li>b. "Priradiť a potvrdiť" links it with <code>mismatchOverride = true</code>. The card then shows "Potvrdené napriek nezhode".</li>
+      <li>Grid effect of the override: it hides only the ⚠ "dátum/čas dokladu mimo jazdy" on "Začiatok" / "Koniec" of that trip, for that type, and removes it from the legend count.</li>
+      <li>The override does not hide the ⚠ "suma iných nákladov nesedí so súčtom dokladov" on "Iné €" (the trip total differs from the sum of its Other documents). The grid has no warning for a Fuel liters or price difference.</li>
+      <li>Fuel assign: if the trip has no liters, the backend copies the liters and the price of the document to the trip and sets "Plná" (full tank). If the trip has liters, it only links.</li>
+      <li>Other assign: the backend adds the amount to "Iné €" and appends the document title to "Iné pozn.". If the trip has no Other document and "Iné €" equals the amount, it only links (no double count).</li>
+      <li>"Zrušiť" and Esc go back to step 1. A click outside the dialog closes it.</li>
+      <li>On success the dialog closes, the list reloads and the toast "Doklad bol pridelený k jazde" shows. On an error the dialog stays open and an error toast shows (frame 5).</li>
+    </ul>
+  </section>
+
+  <!-- 5. Unassign confirm and toasts -->
+  <section class="frame">
+    <h2>5. Unassign confirm, and the toasts of the page</h2>
+    <div class="window" style="height:280px">
+      <div class="content dim" style="height:100%">
+        <div class="dk"><div class="dk-head"><h1>Doklady</h1><span class="dk-btn">Obnoviť z Paperless</span></div></div>
+      </div>
+      <div class="modal cm">
+        <h2>Zrušiť priradenie</h2>
+        <p>Naozaj chcete zrušiť priradenie dokladu "Parkovanie Poprad" k jazde?</p>
+        <div class="acts"><span class="bsm">Zrušiť</span><span class="bsm danger">Zrušiť priradenie</span></div>
+      </div>
+    </div>
+    <div class="window">
+      <div class="tstack">
+        <div class="toast ok"><span>✓</span><span>Doklad bol pridelený k jazde</span></div>
+        <div class="toast ok"><span>✓</span><span>Priradenie dokladu bolo zrušené</span></div>
+        <div class="toast ok"><span>✓</span><span>Potvrdenie nezhody bolo zrušené</span></div>
+        <div class="toast err"><span>✗</span><span>Nepodarilo sa prideliť doklad: Error: Trip already has a fuel invoice</span></div>
+        <div class="toast err"><span>✗</span><span>Nepodarilo sa zrušiť priradenie dokladu</span></div>
+        <div class="toast err"><span>✗</span><span>Nepodarilo sa zrušiť potvrdenie: Error: ...</span></div>
+        <div class="toast err"><span>✗</span><span>Najprv vyberte vozidlo</span></div>
+      </div>
+    </div>
+    <ul class="ann">
+      <li>"Zrušiť priradenie" on a card opens this confirm. The confirm button calls <code>unassign_paperless_invoice</code>. "Zrušiť", Esc or a click outside closes it.</li>
+      <li>An unassign of an Other document subtracts the stored amount from "Iné €" and removes the title from "Iné pozn.", if the note was not edited.</li>
+      <li>An unassign of a Fuel document only deletes the link. The liters, the price and "Plná" that the assign copied stay on the trip.</li>
+      <li>The toasts show top right, one under the other. A green toast closes after 4 s, a red one after 6 s. A click closes a toast. The frame shows all toasts at once to save space.</li>
+      <li>The assign and the clear-override errors add the raw backend text after the colon, with the prefix "Error: ". This text is English. The unassign error has no detail.</li>
+      <li>In read-only mode each write fails. The assign and the clear-override toasts then add "Aplikácia je v režime len na čítanie. ..." from the backend. The unassign toast shows only its own text.</li>
+      <li>"Najprv vyberte vozidlo" shows when "Prideliť k jazde" runs with no active vehicle.</li>
+    </ul>
+  </section>
+
+  <section class="open-points">
+    <h2>Open points (from the code, not fixed)</h2>
+    <ul class="ann">
+      <li>The card type comes from the tag (<code>src-tauri/core/src/commands_internal/paperless_cmd.rs:83</code>), but the picker check decides Fuel by the <code>litres</code> field (<code>src-tauri/core/src/invoice.rs:81</code>). A <code>fuel</code> document with no liters is checked as Other, so the picker does not grey out a trip that already has a Fuel document.</li>
+      <li>The radio in step 2 does not change the check. The mismatch box and the grey trips use the type of the document, not the chosen type (<code>src/lib/components/TripSelectorModal.svelte:292</code>). If the user picks "Tankovanie (PHM)" for an Other document on a trip that already has a Fuel document, the assign fails with "Trip already has a fuel invoice" (<code>src-tauri/core/src/commands_internal/invoices.rs:146</code>).</li>
+      <li>The comment on <code>FUEL_INVOICE_EXISTS_ERR</code> says the frontend translates it (<code>src-tauri/core/src/commands_internal/invoices.rs:19-21</code>). It does not: the toast shows the English text (<code>src/routes/doklady/+page.svelte:108</code>).</li>
+      <li>The mismatch detail lines are hard-coded Slovak, not i18n keys (<code>src/lib/components/TripSelectorModal.svelte:169</code>, <code>:174</code>, <code>:180</code>, <code>:182</code>).</li>
+      <li>The info bar shows "?? L" for an Other document, which has no liters (<code>src/lib/components/TripSelectorModal.svelte:211</code>).</li>
+      <li>An unassign of a Fuel document keeps the liters, price and "Plná" that the assign copied to the trip (<code>src-tauri/core/src/commands_internal/invoices.rs:321-330</code>, copy at <code>:150-155</code>).</li>
+      <li>The nav count counts only unlinked Fuel documents (<code>src-tauri/core/src/commands_internal/paperless_cmd.rs:102</code>). An unlinked Other document is "Nepriradený" on the page but is not in the count.</li>
+      <li>The backend ignores the vehicle (<code>src-tauri/core/src/commands_internal/paperless_cmd.rs:54</code>). Each vehicle sees the same documents and the same "Priradený" state.</li>
+      <li>The page has no read-only handling. The buttons stay active and the writes fail with a toast (<code>src/routes/doklady/+page.svelte:1-17</code>, no app-mode import).</li>
+      <li>Docs out of date: <code>docs/features/paperless-integration.md:13</code> says "skeleton loader", the code shows "Načítavam..." (<code>src/routes/doklady/+page.svelte:162</code>). <code>paperless-integration.md:17</code> and <code>unified-invoice-picker.md:12</code> say "Priradiť k jazde", the label is "Prideliť k jazde" (<code>src/lib/i18n/sk/index.ts:1014</code>).</li>
+      <li>Docs out of date: <code>unified-invoice-picker.md:14</code> says same-day trips are highlighted. The code highlights trips within 3 days (<code>src/lib/components/TripSelectorModal.svelte:81-85</code>). Line 15 of the same doc says an Other document on a trip with an Other document always gets "✓"; the code checks the time (<code>src-tauri/core/src/invoice.rs:131-133</code>).</li>
+    </ul>
+  </section>
+
+</div>
+<script>
+(function () {
+  var root = document.documentElement;
+  try { if (window.matchMedia("(prefers-color-scheme: dark)").matches) root.setAttribute("data-theme", "dark"); } catch (e) {}
+  document.getElementById("themebtn").addEventListener("click", function () {
+    root.setAttribute("data-theme", root.getAttribute("data-theme") === "dark" ? "light" : "dark");
+  });
+})();
+</script>
+<script>
+(function () {
+  /* Outside claude.ai (a local file, GitHub Pages, a raw-HTML proxy) the page nav uses the
+     repo files next to this one; on claude.ai it keeps the artifact links. */
+  var h = location.hostname;
+  if (location.protocol === "file:" || /github\.io$|githack\.com$/.test(h)) {
+    var links = document.querySelectorAll("a[data-file]");
+    for (var i = 0; i < links.length; i++) links[i].href = links[i].getAttribute("data-file");
+  }
+})();
+</script>
+</body>
+</html>

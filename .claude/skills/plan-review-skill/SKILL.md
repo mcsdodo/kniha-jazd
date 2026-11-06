@@ -48,6 +48,11 @@ This skill runs in an isolated forked context using Haiku model.
 
 **Checklist:** tasks have file paths, verification steps, correct order, no scope creep.
 
+**UI tasks:** if the plan changes something the user sees, `01-task.md` must have a `## Design`
+section that links the mockup file (see the `mockup` skill). Each proposed frame must map to a plan
+step, and the plan must not change a screen that no frame shows. A missing `## Design` is an
+Important finding.
+
 **Categorize findings:** Critical/Important/Minor
 
 **Commit the review:** `git commit -m "review: plan review for {PLAN_NAME}"`

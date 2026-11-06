@@ -89,6 +89,7 @@ These load automatically when working on matching files.
 4. **Logical, testable steps** - Break tasks into deliverables that can be verified independently.
 5. **Update documentation** - CHANGELOG for user-visible changes, DECISIONS.md for architectural choices.
 6. **No overengineering** - Keep it simple and maintainable. Test all use-cases thoroughly, but don't over-abstract.
+7. **UI change -> mockup first** - If the user will see the change, draw it in the mockup file of the page and get approval before the plan (`/mockup`, files and registry in [docs/mockups/](docs/mockups/README.md)).
 
 ## Core Principle: Test-Driven Development
 
@@ -385,6 +386,7 @@ Use skills in `.claude/skills/` for workflows:
 | `/verify` | Before claiming "done" | Run tests, check git status, verify changelog |
 | `/move-to-done` | Task is complete or abandoned | Move `_tasks/{NN}-*` to `_tasks/_done/`, repoint its links, update the index |
 | `/release` | Publishing new version | Check upgrade notes, bump version, update changelog, tag, push - CI promotes the tested image |
+| `/mockup` | Before planning a visible UI change; after its merge | Draw the change in the page's claude.ai mockup, get approval, then mark it as built |
 | `/plan-review` | Before coding | Review plan for completeness, feasibility, clarity |
 | `/code-review` | After implementation | Review code quality, run tests, iterate until passing |
 | `/test-review` | After feature complete | Check test coverage, add missing tests |
@@ -397,6 +399,15 @@ Use skills in `.claude/skills/` for workflows:
 - NOT for: refactoring, bug fixes, or changes that follow existing decisions
 
 Keep `README.md` (Slovak) and `README.en.md` in sync with feature changes.
+
+### UI Mockups
+
+Each page has a mockup file in [docs/mockups/](docs/mockups/README.md) that draws its screens,
+one frame per state. The file is the source; the private claude.ai artifact of the page is its
+published view for review. Change the file, then publish it; never edit the artifact directly.
+A visible change goes into the mockup first, marked "Návrh (task NN)" (the `/mockup` skill).
+`/verify` lists the commits that changed a screen after its mockup file (`scripts/mockup-drift.sh`).
+The mockup notes own the UI behaviour; the feature docs own the technical part.
 
 ### Task Completion Checklist
 

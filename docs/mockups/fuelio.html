@@ -1,0 +1,574 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Kniha jázd PC: Fuelio</title>
+<style>
+/* ===== Shared PC mockup CSS (copy this block to every PC mockup) =====
+   The colour variables copy src/lib/theme.css. The frames stack vertically. */
+:root {
+  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, "Open Sans", "Helvetica Neue", sans-serif;
+  --page-bg: #e9edf0; --page-ink: #2c3e50; --page-muted: #6b7a80;
+  --bg-body: #f5f5f5; --bg-surface: #ffffff; --bg-surface-alt: #fafafa; --bg-header: #2c3e50;
+  --text-primary: #2c3e50; --text-secondary: #7f8c8d; --text-muted: #95a5a6;
+  --text-on-header: #ffffff; --text-on-header-muted: rgba(255,255,255,0.7);
+  --border-default: #e0e0e0; --border-input: #d5dbdb; --shadow-default: rgba(0,0,0,0.1);
+  --accent-primary: #3498db; --accent-success: #27ae60; --accent-success-bg: #e8f8e8;
+  --accent-warning: #d39e00; --accent-danger: #c0392b; --accent-danger-bg: #fee;
+  --input-bg: #ffffff; --btn-secondary-bg: #ecf0f1;
+  --toast-success-bg: #d4edda; --toast-success-color: #155724; --toast-success-border: #c3e6cb;
+  --toast-error-bg: #f8d7da; --toast-error-color: #721c24; --toast-error-border: #f5c6cb;
+  --toast-info-bg: #d1ecf1; --toast-info-color: #0c5460; --toast-info-border: #bee5eb;
+  --warning-bg: #fff3cd; --warning-color: #856404; --warning-border: #ffc107;
+  --badge-danger-bg: #e74c3c; --overlay-bg: rgba(0,0,0,0.5);
+  --accent-primary-light-bg: #ebf5fb; --editing-row-bg: #e3f2fd; --accent-warning-dark: #e67e22;
+  --consumption-warn-bg: #fff3e0;
+  --badge-ice-bg: #e3f2fd; --badge-ice-color: #1565c0; --badge-bev-bg: #e8f5e9; --badge-bev-color: #2e7d32;
+  --badge-phev-bg: #fff3e0; --badge-phev-color: #e65100;
+  --prop: #e67e22; --prop-bg: #fdf0e1;
+  color-scheme: light;
+}
+:root[data-theme="dark"] {
+  --page-bg: #0d0f10; --page-ink: #e0e0e0; --page-muted: #9aa4a8;
+  --bg-body: #121212; --bg-surface: #1e1e1e; --bg-surface-alt: #252525; --bg-header: #1e1e1e;
+  --text-primary: #e0e0e0; --text-secondary: #a0a0a0; --text-muted: #707070;
+  --text-on-header: #e0e0e0; --text-on-header-muted: rgba(255,255,255,0.6);
+  --border-default: #333333; --border-input: #404040; --shadow-default: rgba(0,0,0,0.3);
+  --accent-primary: #5dade2; --accent-success: #58d68d; --accent-success-bg: #1e3d1e;
+  --accent-warning: #f4d03f; --accent-danger: #ec7063; --accent-danger-bg: #3d2020;
+  --input-bg: #2a2a2a; --btn-secondary-bg: #333333;
+  --toast-success-bg: #1e3a1e; --toast-success-color: #58d68d; --toast-success-border: #2a4a2a;
+  --toast-error-bg: #3d2020; --toast-error-color: #ec7063; --toast-error-border: #5a2a2a;
+  --toast-info-bg: #1a3a4a; --toast-info-color: #5dade2; --toast-info-border: #254a5a;
+  --warning-bg: #3d3520; --warning-color: #f4d03f; --warning-border: #8a7020;
+  --accent-primary-light-bg: #1a2a3a; --editing-row-bg: #1a2a3a; --consumption-warn-bg: #3a2a1a;
+  --badge-ice-bg: #1a2a3a; --badge-ice-color: #64b5f6; --badge-bev-bg: #1e3a1e; --badge-bev-color: #81c784;
+  --badge-phev-bg: #3a2a1a; --badge-phev-color: #ffb74d;
+  --prop: #f0a04a; --prop-bg: #3a2a18;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--page-bg); color: var(--page-ink); font-family: var(--font-sans); font-size: 15px; line-height: 1.45; }
+code { font-size: 0.9em; }
+a { color: var(--accent-primary); }
+header.page { padding: 24px 24px 8px; max-width: 1240px; margin: 0 auto; }
+header.page h1 { margin: 0 0 4px; font-size: 1.5rem; text-wrap: balance; }
+header.page p { margin: 4px 0; color: var(--page-muted); max-width: 80ch; }
+.pagenav { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 0.9rem; margin-top: 8px; align-items: center; }
+.pagenav .here { font-weight: 700; color: var(--page-ink); }
+.themebtn { margin-left: auto; font: inherit; font-size: 0.85rem; border: 1px solid var(--page-muted); background: transparent; color: var(--page-ink); border-radius: 6px; padding: 3px 10px; cursor: pointer; }
+.frames { display: flex; flex-direction: column; gap: 36px; padding: 16px 24px 48px; max-width: 1240px; margin: 0 auto; }
+.frame { display: flex; flex-direction: column; gap: 10px; }
+.frame > h2 { margin: 0; font-size: 0.85rem; letter-spacing: 0.06em; text-transform: uppercase; color: var(--page-muted); }
+.window { width: 100%; max-width: 1180px; border: 1px solid var(--border-default); border-radius: 8px; overflow: hidden; background: var(--bg-body); color: var(--text-primary); box-shadow: 0 6px 18px rgba(0,0,0,0.10); position: relative; font-size: 14px; }
+.window .content { padding: 16px 20px; display: flex; flex-direction: column; gap: 14px; }
+.ann { font-size: 0.9rem; color: var(--page-muted); margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 4px; max-width: 95ch; }
+.ann li::marker { color: var(--accent-primary); }
+.ann b, .ann code { color: var(--page-ink); }
+.ann li.prop::marker { color: var(--prop); }
+.ann li.prop b { color: var(--prop); }
+/* Proposal mark: a frame or an element changed by a task, not built yet */
+.open { border: 2px dashed var(--prop); border-radius: 8px; padding: 6px 8px; }
+.open > .tag, .tag.prop { display: inline-block; font-size: 0.72rem; font-weight: 700; color: var(--prop); background: var(--prop-bg); text-transform: uppercase; letter-spacing: 0.05em; padding: 1px 6px; border-radius: 4px; }
+/* App header */
+.apphdr { background: var(--bg-header); color: var(--text-on-header); padding: 10px 20px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; box-shadow: 0 2px 4px var(--shadow-default); }
+.apphdr .left { display: flex; align-items: center; gap: 8px 24px; flex-wrap: wrap; }
+.apphdr .title { font-size: 1.3rem; font-weight: 600; padding: 4px 12px; border-radius: 4px; }
+.apphdr nav { display: flex; gap: 4px; flex-wrap: wrap; }
+.apphdr nav span { color: var(--text-on-header-muted); padding: 6px 12px; border-radius: 4px; font-weight: 500; white-space: nowrap; }
+.apphdr .on { background: rgba(255,255,255,0.2); color: var(--text-on-header) !important; }
+.apphdr .right { display: flex; gap: 14px; align-items: center; font-size: 0.9rem; }
+.apphdr .sel { background: var(--input-bg); color: var(--text-primary); border-radius: 4px; padding: 4px 8px; margin-left: 6px; border: 1px solid var(--border-input); }
+.badge-count { display: inline-block; min-width: 18px; padding: 0 5px; margin-left: 6px; border-radius: 9px; background: var(--badge-danger-bg); color: #fff; font-size: 0.72rem; font-weight: 700; text-align: center; line-height: 18px; }
+.banner-ro { display: flex; gap: 10px; align-items: center; padding: 10px 16px; background: var(--warning-bg); border-bottom: 1px solid var(--warning-border); color: var(--warning-color); font-weight: 500; }
+/* Generic app parts */
+.card { background: var(--bg-surface); border-radius: 8px; padding: 16px; box-shadow: 0 1px 3px var(--shadow-default); display: flex; flex-direction: column; gap: 12px; }
+.card h3 { margin: 0; font-size: 1.15rem; }
+.row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.spread { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; }
+.btn { display: inline-block; padding: 7px 14px; border-radius: 4px; font-weight: 500; font-size: 0.9rem; background: var(--btn-secondary-bg); color: var(--text-primary); border: 1px solid transparent; white-space: nowrap; }
+.btn.primary { background: var(--accent-primary); color: #fff; }
+.btn.success { background: var(--accent-success); color: #fff; }
+.btn.danger { background: var(--accent-danger); color: #fff; }
+.btn.ghost { background: transparent; border-color: var(--border-input); }
+.btn.dis { opacity: 0.45; }
+.btn.sm { padding: 4px 10px; font-size: 0.82rem; }
+.input { display: inline-flex; align-items: center; justify-content: space-between; gap: 6px; border: 1px solid var(--border-input); border-radius: 4px; padding: 5px 8px; background: var(--input-bg); min-width: 60px; font-variant-numeric: tabular-nums; }
+.input.focus { border-color: var(--accent-primary); box-shadow: 0 0 0 2px rgba(52,152,219,0.15); }
+.input.bad { border-color: var(--accent-danger); }
+.hint { color: var(--text-secondary); font-size: 0.85rem; }
+.muted { color: var(--text-secondary); }
+.warn-text { color: var(--accent-warning-dark); font-weight: 600; }
+.err-text { color: var(--accent-danger); }
+.ok-text { color: var(--accent-success); }
+.pill { display: inline-block; padding: 1px 8px; border-radius: 999px; font-size: 0.78rem; font-weight: 600; white-space: nowrap; }
+.pill.ok { background: var(--accent-success-bg); color: var(--accent-success); }
+.pill.bad { background: var(--accent-danger-bg); color: var(--accent-danger); }
+.pill.warn { background: var(--warning-bg); color: var(--warning-color); }
+.pill.info { background: var(--accent-primary-light-bg); color: var(--accent-primary); }
+.chk { display: inline-flex; gap: 6px; align-items: center; }
+.box { display: inline-block; width: 14px; height: 14px; border: 1px solid var(--border-input); border-radius: 3px; background: var(--input-bg); vertical-align: middle; position: relative; }
+.box.on { background: var(--accent-primary); border-color: var(--accent-primary); }
+.box.on::after { content: ""; position: absolute; left: 4px; top: 1px; width: 4px; height: 8px; border: solid #fff; border-width: 0 2px 2px 0; transform: rotate(45deg); }
+.seg { display: inline-flex; border: 1px solid var(--border-input); border-radius: 4px; overflow: hidden; font-size: 0.82rem; }
+.seg span { padding: 4px 10px; }
+.seg span.on { background: var(--accent-primary); color: #fff; }
+.toast { position: absolute; top: 12px; right: 12px; z-index: 5; display: flex; gap: 10px; align-items: center; padding: 10px 14px; border-radius: 6px; border: 1px solid; font-size: 0.9rem; box-shadow: 0 4px 12px var(--shadow-default); }
+.toast.ok { background: var(--toast-success-bg); color: var(--toast-success-color); border-color: var(--toast-success-border); }
+.toast.err { background: var(--toast-error-bg); color: var(--toast-error-color); border-color: var(--toast-error-border); }
+.toast.info { background: var(--toast-info-bg); color: var(--toast-info-color); border-color: var(--toast-info-border); }
+.toast .act { font-weight: 700; text-decoration: underline; }
+.dim { position: relative; }
+.dim::after { content: ""; position: absolute; inset: 0; background: var(--overlay-bg); z-index: 2; }
+.modal { position: absolute; left: 50%; top: 40px; transform: translateX(-50%); z-index: 3; background: var(--bg-surface); color: var(--text-primary); border-radius: 8px; box-shadow: 0 10px 30px rgba(0,0,0,0.3); padding: 18px 20px; display: flex; flex-direction: column; gap: 12px; width: 520px; max-width: 92%; }
+.modal h4 { margin: 0; font-size: 1.15rem; display: flex; justify-content: space-between; }
+.modal .foot { display: flex; justify-content: flex-end; gap: 8px; margin-top: 4px; }
+.mapbox { height: 220px; border-radius: 6px; border: 1px solid var(--border-default); position: relative; overflow: hidden; background: linear-gradient(135deg, color-mix(in srgb, var(--accent-success) 10%, var(--bg-surface)), color-mix(in srgb, var(--accent-primary) 10%, var(--bg-surface))); }
+.mapbox svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+.tbl { width: 100%; border-collapse: collapse; font-size: 0.85rem; font-variant-numeric: tabular-nums; }
+.tbl th, .tbl td { padding: 5px 6px; text-align: left; border-bottom: 1px solid var(--border-default); white-space: nowrap; }
+.tbl th { background: var(--bg-surface-alt); font-weight: 600; color: var(--text-secondary); }
+.tbl td.n, .tbl th.n { text-align: right; }
+.open-points { border: 1px solid var(--border-default); border-radius: 8px; padding: 12px 16px; background: var(--bg-surface); color: var(--text-primary); }
+.open-points h2 { margin: 0 0 6px; font-size: 1rem; }
+/* ===== End of the shared CSS ===== */
+
+/* Page-specific: Fuelio cross-check (vars that the shared block does not have, from src/lib/theme.css) */
+:root { --btn-active-primary-bg: #3498db; --btn-active-primary-color: #ffffff; --accent-primary-light-hover: #d4e6f1; --btn-secondary-hover: #d5dbdb; }
+:root[data-theme="dark"] { --btn-active-primary-bg: #1a3a5c; --btn-active-primary-color: #5dade2; --accent-primary-light-hover: #254555; --btn-secondary-hover: #404040; }
+.fsec { background: var(--bg-surface); padding: 18px; border-radius: 8px; box-shadow: 0 1px 3px var(--shadow-default); display: flex; flex-direction: column; gap: 10px; }
+.fsec h3.heading { margin: 0; font-size: 1.25rem; }
+.fsec p { margin: 0; }
+.small { font-size: 0.8rem; }
+.fwarn { color: var(--accent-danger); }
+.sync-bar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.sync-btn { padding: 5px 12px; border-radius: 4px; background: var(--btn-active-primary-bg); color: var(--btn-active-primary-color); font-size: 0.875rem; }
+.sync-btn.dis { opacity: 0.6; }
+.filters { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; font-size: 0.875rem; }
+.filters .num { display: inline-block; width: 4.6rem; margin-left: 4px; padding: 3px 6px; border: 1px solid var(--border-input); border-radius: 4px; background: var(--input-bg); font-variant-numeric: tabular-nums; }
+.fpills { display: flex; flex-wrap: wrap; gap: 5px; }
+.fpill { padding: 2px 11px; border: 1px solid var(--border-input); border-radius: 999px; background: var(--bg-surface); font-size: 0.8rem; }
+.fpill.on { background: var(--btn-active-primary-bg); border-color: var(--btn-active-primary-color); color: var(--btn-active-primary-color); font-weight: 600; }
+.icon-legend { display: flex; flex-wrap: wrap; gap: 5px 22px; font-size: 0.8rem; color: var(--text-secondary); }
+.icon-legend .grp { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; }
+.icon-legend .it { display: inline-flex; align-items: center; gap: 4px; }
+.ic { display: inline-flex; vertical-align: middle; }
+.ic svg { display: block; }
+.ic.matched { color: var(--accent-success); }
+.ic.missing { color: var(--accent-danger); }
+.ic.ignored { color: var(--text-secondary); }
+.ic.flag { color: var(--warning-color); margin-right: 4px; }
+.flayout { display: grid; grid-template-columns: minmax(0, 1fr) 220px; gap: 10px; align-items: start; }
+.nw { white-space: nowrap; }
+.ftable { border-collapse: collapse; width: 100%; font-size: 0.74rem; font-variant-numeric: tabular-nums; }
+.ftable th, .ftable td { padding: 4px 4px; border-bottom: 1px solid var(--border-default); text-align: left; vertical-align: top; }
+.ftable th { background: var(--bg-surface-alt); white-space: nowrap; }
+.ftable .r { text-align: right; }
+.ftable .nw { white-space: nowrap; }
+.ftable tr.sel td { background: var(--accent-primary-light-hover); }
+.ftable tr.ign td { color: var(--text-secondary); }
+.ob { display: inline-block; padding: 2px 5px; font-size: 0.72rem; border: 1px solid var(--border-input); border-radius: 4px; background: var(--btn-secondary-bg); white-space: nowrap; }
+.ib { display: inline-flex; vertical-align: middle; margin-left: 3px; padding: 2px 4px; border: 1px solid var(--border-input); border-radius: 4px; background: var(--btn-secondary-bg); color: var(--text-secondary); }
+.map-panel h3 { margin: 0 0 3px; font-size: 1rem; }
+.mlegend { display: flex; gap: 14px; color: var(--text-secondary); font-size: 0.8rem; }
+.mlegend i { display: inline-block; width: 16px; height: 4px; margin-right: 5px; vertical-align: middle; }
+.fmap { height: 430px; margin-top: 6px; }
+.fmap .zoom { position: absolute; left: 8px; top: 8px; z-index: 1; display: flex; flex-direction: column; background: #fff; color: #333; border: 2px solid rgba(0,0,0,0.2); border-radius: 4px; font-weight: 700; }
+.fmap .zoom span { width: 26px; height: 26px; text-align: center; line-height: 26px; }
+.fmap .zoom span + span { border-top: 1px solid #ccc; }
+.fmap .attr { position: absolute; right: 0; bottom: 0; z-index: 1; background: rgba(255,255,255,0.8); color: #333; font-size: 10px; padding: 0 5px; }
+/* Fuelio modals */
+.fm h4 { margin: 0; font-size: 1.2rem; }
+.fm p { margin: 0; }
+.fm .wbox { background: var(--warning-bg); color: var(--warning-color); padding: 6px 9px; border-radius: 4px; font-size: 0.875rem; }
+.fm table { width: 100%; border-collapse: collapse; font-size: 0.875rem; }
+.fm td { padding: 6px; border-bottom: 1px solid var(--border-default); vertical-align: top; }
+.fm td.lab { white-space: nowrap; width: 1%; }
+.fm .sel-in { display: flex; justify-content: space-between; width: 100%; padding: 5px 8px; border: 1px solid var(--border-input); border-radius: 4px; background: var(--input-bg); }
+.fm .txt-in { display: block; width: 100%; margin-top: 5px; padding: 5px 8px; border: 1px solid var(--border-input); border-radius: 4px; background: var(--input-bg); }
+.fm .txt-in.ph { color: var(--text-muted); }
+.fm .bsm { padding: 7px 14px; border-radius: 4px; background: var(--btn-secondary-bg); font-size: 0.875rem; }
+.fm .bsm.pri { background: var(--btn-active-primary-bg); color: var(--btn-active-primary-color); }
+.fm .bsm.dis { opacity: 0.5; }
+.optlist { position: absolute; z-index: 4; background: var(--bg-surface); border: 1px solid var(--border-input); border-radius: 4px; box-shadow: 0 4px 10px var(--shadow-default); font-size: 0.85rem; }
+.optlist div { padding: 4px 10px; white-space: nowrap; }
+.optlist div.on { background: var(--accent-primary); color: #fff; }
+.toasts { display: flex; flex-direction: column; gap: 8px; padding: 16px 20px; align-items: flex-end; }
+.toasts .toast { position: static; }
+</style>
+</head>
+<body>
+<!-- Icon sprite: the lucide paths of the icon snippet in src/routes/fuelio/+page.svelte:284-303 -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-ignored" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.88 9.88a3 3 0 1 0 4.24 4.24"/><path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 11 8 11 8a13.16 13.16 0 0 1-1.67 2.68"/><path d="M6.61 6.61A13.526 13.526 0 0 0 1 12s4 8 11 8a9.74 9.74 0 0 0 5.39-1.61"/><line x1="2" x2="22" y1="2" y2="22"/></g></symbol>
+  <symbol id="i-unignore" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></g></symbol>
+  <symbol id="i-matched" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></g></symbol>
+  <symbol id="i-missing" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" x2="12" y1="8" y2="12"/><line x1="12" x2="12.01" y1="16" y2="16"/></g></symbol>
+  <symbol id="i-time" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></g></symbol>
+  <symbol id="i-km" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.3 15.3a2.4 2.4 0 0 1 0 3.4l-2.6 2.6a2.4 2.4 0 0 1-3.4 0L2.7 8.7a2.41 2.41 0 0 1 0-3.4l2.6-2.6a2.41 2.41 0 0 1 3.4 0Z"/><path d="m14.5 12.5 2-2"/><path d="m11.5 9.5 2-2"/><path d="m8.5 6.5 2-2"/><path d="m17.5 15.5 2-2"/></g></symbol>
+  <symbol id="i-route" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="19" r="3"/><path d="M9 19h8.5a3.5 3.5 0 0 0 0-7h-11a3.5 3.5 0 0 1 0-7H15"/><circle cx="18" cy="5" r="3"/></g></symbol>
+  <symbol id="i-partial" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12.75 7.09a3 3 0 0 1 2.16 2.16"/><path d="M17.072 17.072c-1.634 2.17-3.527 3.912-4.471 4.727a1 1 0 0 1-1.202 0C9.539 20.193 4 14.993 4 10a8 8 0 0 1 1.432-4.568"/><path d="m2 2 20 20"/><path d="M8.475 2.818A8 8 0 0 1 20 10c0 1.183-.31 2.377-.81 3.533"/><path d="M9.13 9.13a3 3 0 0 0 3.74 3.74"/></g></symbol>
+  <symbol id="i-loose" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m18.84 12.25 1.72-1.71h-.02a5.004 5.004 0 0 0-.12-7.07 5.006 5.006 0 0 0-6.95 0l-1.72 1.71"/><path d="m5.17 11.75-1.71 1.71a5.004 5.004 0 0 0 .12 7.07 5.006 5.006 0 0 0 6.95 0l1.71-1.71"/><line x1="8" x2="8" y1="2" y2="5"/><line x1="2" x2="5" y1="8" y2="8"/><line x1="16" x2="16" y1="19" y2="22"/><line x1="19" x2="22" y1="16" y2="16"/></g></symbol>
+</svg>
+
+<header class="page">
+  <h1>Kniha jázd on the PC: Fuelio (current state)</h1>
+  <p>The Fuelio cross-check at <code>/fuelio</code>: the GPS drives of the Fuelio app next to the logbook trips, as it works on <code>main</code>. The example data is invented. The UI text is Slovak, as in the app. The notes under each frame say what the screen does.</p>
+  <p>The source is <code>docs/mockups/fuelio.html</code> in the repo. Its git history shows when the page changed.</p>
+  <p>An orange dashed box with the tag "Návrh (task NN)" marks a proposal that is not built yet. This page has no open proposal.</p>
+  <div class="pagenav" id="pagenav">
+    <a href="https://claude.ai/artifact/PCbcTRe6EybiezMCqH8rm2" data-file="jazdy.html">Jazdy</a><a href="https://claude.ai/artifact/Nvtcv8rofbFtVG4BNbAoMr" data-file="doklady.html">Doklady</a>
+    <span class="here">Fuelio</span>
+    <a href="https://claude.ai/artifact/F3fXHbFEaERHHcKC4tr215" data-file="mapa.html">Mapa</a><a href="https://claude.ai/artifact/T2jiZ3ZLGs9s1F89UZP9eE" data-file="miesta.html">Miesta</a><a href="https://claude.ai/artifact/F5fCz7wgrunXAyQ5rRw1AJ" data-file="nastavenia.html">Nastavenia</a><a href="https://claude.ai/artifact/TyYTKii3cU4ryvN98giUGW" data-file="mobil.html">Mobil</a>
+    <button class="themebtn" type="button" id="themebtn">Dark / light</button>
+  </div>
+</header>
+
+<div class="frames">
+
+  <!-- 1. Not configured -->
+  <section class="frame">
+    <h2>1. Fuelio not configured (no Dropbox secrets)</h2>
+    <div class="window">
+      <div class="apphdr">
+        <div class="left">
+          <span class="title">Kniha Jázd</span>
+          <nav><span>Doklady</span><span>Miesta</span><span>Nastavenia</span></nav>
+        </div>
+        <div class="right">
+          <span>Vozidlo:<span class="sel">Škoda Octavia (BA123XY) v</span></span>
+          <span>Rok:<span class="sel">2026 v</span></span>
+        </div>
+      </div>
+      <div class="content">
+        <div class="fsec">
+          <h3 class="heading">Fuelio - kontrola jázd</h3>
+          <p class="muted">Jazdy, ktoré zaznamenala aplikácia Fuelio (GPS), a jazda v knihe jázd, ku ktorej patria. Ikony vysvetľuje legenda nad tabuľkou. "Prepísať" nahradí údaje jazdy hodnotami z GPS. "Pridať" zapíše chýbajúcu jazdu do knihy. Jazdu, ktorá do knihy nepatrí (napr. súkromnú), skryje tlačidlo s preškrtnutým okom.</p>
+          <p class="fwarn">Fuelio nie je nastavené. Nastavte premenné prostredia DROPBOX_APP_KEY, DROPBOX_APP_SECRET a DROPBOX_REFRESH_TOKEN.</p>
+        </div>
+      </div>
+    </div>
+    <ul class="ann">
+      <li>At mount the page calls <code>is_fuelio_available</code> and <code>get_fuelio_filters</code> together. The answer is true only when all three <code>DROPBOX_*</code> env vars are set. A Fuelio folder alone does not count.</li>
+      <li>With the answer false, the page shows only the title, the intro and this red line. The nav has no "Fuelio" link, so the user gets here only by the URL.</li>
+      <li>Without the secrets, the backend refuses every other Fuelio command with an English error ("Dropbox is not configured: ...").</li>
+      <li>Other states of the same place on the page: no active vehicle shows "Vyberte vozidlo.". The first load shows "Načítavam...".</li>
+      <li>If the folder <code>&lt;DATA_DIR&gt;/fuelio</code> does not exist, the info line of frame 2 reads "Priečinok so súbormi Fuelio: /data/fuelio" and, in red, "Priečinok neexistuje. Skopírujte doň zálohu Fuelio (route-*.data)."</li>
+    </ul>
+  </section>
+
+  <!-- 2. Report top -->
+  <section class="frame">
+    <h2>2. Report top: sync, filters, pills, legend</h2>
+    <div class="window">
+      <div class="apphdr">
+        <div class="left">
+          <span class="title">Kniha Jázd</span>
+          <nav><span>Doklady</span><span>Miesta</span><span class="on">Fuelio</span><span>Nastavenia</span></nav>
+        </div>
+        <div class="right">
+          <span>Vozidlo:<span class="sel">Škoda Octavia (BA123XY) v</span></span>
+          <span>Rok:<span class="sel">2026 v</span></span>
+        </div>
+      </div>
+      <div class="content">
+        <div class="fsec">
+          <h3 class="heading">Fuelio - kontrola jázd</h3>
+          <p class="muted">Jazdy, ktoré zaznamenala aplikácia Fuelio (GPS), a jazda v knihe jázd, ku ktorej patria. Ikony vysvetľuje legenda nad tabuľkou. "Prepísať" nahradí údaje jazdy hodnotami z GPS. "Pridať" zapíše chýbajúcu jazdu do knihy. Jazdu, ktorá do knihy nepatrí (napr. súkromnú), skryje tlačidlo s preškrtnutým okom.</p>
+          <p class="muted small">Jazdy Fuelio v roku 2026: 186</p>
+          <div class="sync-bar">
+            <span class="sync-btn">Synchronizovať z Dropboxu (2026)</span>
+            <span class="muted small">Stiahne jazdy Fuelio vybraného roka, ktoré tu ešte nie sú.</span>
+          </div>
+          <div class="filters">
+            <span>Min. km<span class="num">15</span></span>
+            <span>Spojiť pri prestávke do (min)<span class="num">60</span></span>
+            <span>a vzdialenosti do (km)<span class="num">2</span></span>
+            <span>Voľné spárovanie od (% km)<span class="num">50</span></span>
+            <span class="fpills">
+              <span class="fpill">Spárované</span><span class="fpill">Chýba v knihe</span><span class="fpill">Ignorované</span><span class="fpill on">Len problémy</span><span class="fpill">Len diaľnica</span>
+            </span>
+            <span class="muted small">Zobrazené: 9</span>
+          </div>
+          <div class="icon-legend">
+            <span class="grp"><b>Stav:</b>
+              <span class="it"><span class="ic matched"><svg width="16" height="16"><use href="#i-matched"/></svg></span>Spárované</span>
+              <span class="it"><span class="ic missing"><svg width="16" height="16"><use href="#i-missing"/></svg></span>Chýba v knihe</span>
+              <span class="it"><span class="ic ignored"><svg width="16" height="16"><use href="#i-ignored"/></svg></span>Ignorované</span>
+            </span>
+            <span class="grp"><b>Upozornenia:</b>
+              <span class="it"><span class="ic flag"><svg width="16" height="16"><use href="#i-time"/></svg></span>Iný čas</span>
+              <span class="it"><span class="ic flag"><svg width="16" height="16"><use href="#i-km"/></svg></span>Iné km</span>
+              <span class="it"><span class="ic flag"><svg width="16" height="16"><use href="#i-route"/></svg></span>Iná trasa</span>
+              <span class="it"><span class="ic flag"><svg width="16" height="16"><use href="#i-partial"/></svg></span>Čiastočné GPS</span>
+              <span class="it"><span class="ic flag"><svg width="16" height="16"><use href="#i-loose"/></svg></span>Voľné spárovanie</span>
+            </span>
+          </div>
+        </div>
+      </div>
+    </div>
+    <ul class="ann">
+      <li>The page loads the report with <code>get_fuelio_crosscheck</code> for the active vehicle and the selected year. A vehicle or year change loads it again. Only the newest load can set the report.</li>
+      <li>"Jazdy Fuelio v roku 2026: N" counts the drive files of the year in <code>&lt;DATA_DIR&gt;/fuelio</code>. A drive belongs to the local year of the epoch in its file name.</li>
+      <li>"Synchronizovať z Dropboxu (rok)" calls <code>sync_fuelio_dropbox</code> for the selected year. It downloads only the drives that are not in the folder yet, then loads the report again. While it runs, the button is disabled and reads "Synchronizujem...". The result is a toast (frame 8).</li>
+      <li>The server also syncs on its own: at start and then every <code>FUELIO_SYNC_INTERVAL_MINUTES</code> (ADR-061; the default is in the env-var table of <code>CLAUDE.md</code>). The timer syncs the current year, and in January also the last year. The button and the timer never run at the same time.</li>
+      <li>The four inputs come from <code>get_fuelio_filters</code>. With nothing saved, the inputs show the backend defaults (BIZ-027, BIZ-030). A change saves all four with <code>set_fuelio_filters</code> in <code>local.settings.json</code>. An empty input saves as empty.</li>
+      <li>"Min. km" only hides rows below the value (the GPS km, or the book km of a row without GPS). It does not load the report again.</li>
+      <li>The three other inputs go to the backend and load the report again. "Spojiť pri prestávke do (min)" and "a vzdialenosti do (km)" decide when two drives join one row. A drive that belongs to a trip also joins across a longer stop (BIZ-027). "Voľné spárovanie od (% km)" is the share of the trip km that a loose match needs (0 = no minimum). The tooltips are the i18n keys <code>mergeHint</code> and <code>looseMinHint</code>.</li>
+      <li>The pills filter the display only and are not saved. The state pills combine with OR. "Len problémy" and "Len diaľnica" add an AND.</li>
+      <li>With no state pill pressed, the table shows the matched and missing rows. An ignored row shows only under the "Ignorované" pill.</li>
+      <li>"Len problémy" keeps a missing row or a matched row with a warning icon. It never keeps an ignored row. "Len diaľnica" keeps a row with 30 km or more of GPS, or 5 min or more above 100 km/h (tooltip "Jazda &gt;= 30 km alebo &gt;= 5 min nad 100 km/h").</li>
+      <li>"Zobrazené: N" counts the rows after the filters.</li>
+    </ul>
+  </section>
+
+  <!-- 3. Table and map -->
+  <section class="frame">
+    <h2>3. The table, one row of each kind, and the map</h2>
+    <div class="window">
+      <div class="content">
+        <div class="fsec">
+          <div class="filters">
+            <span class="fpills"><span class="fpill on">Spárované</span><span class="fpill on">Chýba v knihe</span><span class="fpill on">Ignorované</span><span class="fpill">Len problémy</span><span class="fpill">Len diaľnica</span></span>
+            <span class="muted small">Zobrazené: 7</span>
+          </div>
+          <div class="flayout">
+            <div style="overflow:auto">
+            <table class="ftable">
+              <thead><tr><th>Stav</th><th>Kniha jázd</th><th>Trasa</th><th class="r">km (kniha)</th><th>GPS čas</th><th class="r">km (GPS)</th><th class="r">min &gt; 100</th><th class="r">max km/h</th><th>Rozdiel</th><th></th></tr></thead>
+              <tbody>
+                <tr><td class="nw"><span class="ic matched"><svg width="18" height="18"><use href="#i-matched"/></svg></span></td><td class="nw">5.11.2026 07:40</td><td>Domov &rarr; Kancelária</td><td class="r">24</td><td class="nw">07:42 - 08:09</td><td class="r">24.3</td><td class="r">0</td><td class="r">88</td><td class="nw small">+2 min<br>+1.3 %<br>mimo trasy: 2 %</td><td class="nw"><span class="ob">Prepísať</span></td></tr>
+                <tr><td class="nw"><span class="ic matched"><svg width="18" height="18"><use href="#i-matched"/></svg></span><span class="ic flag"><svg width="16" height="16"><use href="#i-loose"/></svg></span></td><td class="nw">4.11.2026 16:30</td><td>Kancelária &rarr; Domov</td><td class="r">24</td><td class="nw">17:55 - 18:07</td><td class="r">13.6</td><td class="r">0</td><td class="r">71</td><td class="nw small">+85 min<br>-43.3 %</td><td class="nw"><span class="ob">Prepísať</span> <span class="ob">Pridať</span></td></tr>
+                <tr><td class="nw"><span class="ic missing"><svg width="18" height="18"><use href="#i-missing"/></svg></span></td><td class="nw"></td><td></td><td class="r"></td><td class="nw">3.11.2026 19:12 - 19:58</td><td class="r">41.7</td><td class="r">6</td><td class="r">127</td><td class="nw small"></td><td class="nw"><span class="ob">Pridať</span><span class="ib" title="Ignorovať: jazda nepatrí do knihy jázd"><svg width="16" height="16"><use href="#i-ignored"/></svg></span></td></tr>
+                <tr class="sel"><td class="nw"><span class="ic matched"><svg width="18" height="18"><use href="#i-matched"/></svg></span><span class="ic flag"><svg width="16" height="16"><use href="#i-time"/></svg></span><span class="ic flag"><svg width="16" height="16"><use href="#i-km"/></svg></span><span class="ic flag"><svg width="16" height="16"><use href="#i-route"/></svg></span></td><td class="nw">3.11.2026 08:00</td><td>Sklad &rarr; Klient Trnava</td><td class="r">52</td><td class="nw">09:12 - 10:05</td><td class="r">61.8</td><td class="r">9</td><td class="r">131</td><td class="nw small">+72 min<br>+18.8 %<br>mimo trasy: 23 %</td><td class="nw"><span class="ob">Prepísať</span></td></tr>
+                <tr><td class="nw"><span class="ic matched"><svg width="18" height="18"><use href="#i-matched"/></svg></span><span class="ic flag"><svg width="16" height="16"><use href="#i-partial"/></svg></span></td><td class="nw">30.10.2026 08:05</td><td>Kancelária &rarr; Klient Poprad</td><td class="r">135</td><td class="nw">08:51 - 10:02</td><td class="r">98.4</td><td class="r">38</td><td class="r">134</td><td class="nw small"><br>-27.1 %<br>mimo trasy: 1 %</td><td class="nw"><span class="ob">Prepísať</span></td></tr>
+                <tr><td class="nw"><span class="ic matched"><svg width="18" height="18"><use href="#i-matched"/></svg></span></td><td class="nw">29.10.2026 09:34</td><td>Sklad &rarr; Čerpacia stanica D1</td><td class="r">218</td><td class="nw">09:36 - 12:01<br><span class="muted small">(jazdy: 3)</span></td><td class="r">221.4</td><td class="r">84</td><td class="r">138</td><td class="nw small">+2 min<br>+1.6 %<br>mimo trasy: 3 %</td><td class="nw"><span class="ob">Prepísať</span></td></tr>
+                <tr class="ign"><td class="nw"><span class="ic ignored"><svg width="18" height="18"><use href="#i-ignored"/></svg></span></td><td class="nw"></td><td></td><td class="r"></td><td class="nw">26.10.2026 18:20 - 18:41</td><td class="r">16.2</td><td class="r">0</td><td class="r">74</td><td class="nw small"></td><td class="nw"><span class="ib" title="Zrušiť ignorovanie"><svg width="16" height="16"><use href="#i-unignore"/></svg></span></td></tr>
+              </tbody>
+            </table>
+            </div>
+            <div class="map-panel">
+              <h3>Mapa</h3>
+              <div class="mlegend"><span><i style="background:#d63031"></i>GPS (Fuelio)</span><span><i style="background:#0984e3"></i>Uložená trasa</span></div>
+              <p class="small" style="margin-top:4px">Sklad &rarr; Klient Trnava</p>
+              <div class="mapbox fmap">
+                <div class="zoom"><span>+</span><span>-</span></div>
+                <svg viewBox="0 0 400 430" preserveAspectRatio="none" aria-hidden="true">
+                  <g stroke="var(--border-input)" stroke-width="2" fill="none">
+                    <path d="M0 80 L400 120"/><path d="M60 0 L120 430"/><path d="M0 300 C120 280 260 330 400 300"/><path d="M300 0 L260 430"/><path d="M0 200 L400 230"/>
+                  </g>
+                  <polyline points="70,380 110,330 150,300 190,260 230,210 260,160 290,110 330,60" fill="none" stroke="#0984e3" stroke-width="6" stroke-opacity="0.6" stroke-linecap="round" stroke-linejoin="round"/>
+                  <polyline points="70,380 110,330 150,300 175,285 215,290 255,250 270,200 268,160 290,110 330,60" fill="none" stroke="#d63031" stroke-width="3" stroke-opacity="0.9" stroke-linecap="round" stroke-linejoin="round"/>
+                  <text x="78" y="398" font-size="11" fill="var(--text-secondary)">Sklad</text>
+                  <text x="300" y="48" font-size="11" fill="var(--text-secondary)">Klient Trnava</text>
+                </svg>
+                <div class="attr">Leaflet | &copy; OpenStreetMap contributors</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <ul class="ann">
+      <li>The frame presses the three state pills, so the ignored row shows too. Row by row: matched clean, loose match, missing, matched with warnings (selected), partial GPS, three drives in one row, ignored.</li>
+      <li>Each row is a run of Fuelio drives. A logbook trip with no drive has no row. The backend sorts the rows newest first by GPS start.</li>
+      <li>The status icon: green check "Spárované", red mark "Chýba v knihe", crossed-out eye "Ignorované". The warning icons follow in the same cell. Each icon has a tooltip with its name.</li>
+      <li>Warnings on a complete match: "Iný čas" if the GPS start is too far from the book start, "Iné km" if the km differ too much, "Iná trasa" if too much of the track is away from the stored route. The thresholds are backend constants (BIZ-027, explained in <code>docs/features/fuelio.md</code>).</li>
+      <li>"Čiastočné GPS": the drives cover only part of a trip with a stored route. Such a row never gets "Iné km". If the run starts mid-trip, it has no minutes, so "Rozdiel" starts with an empty line.</li>
+      <li>"Voľné spárovanie": only the loose pass found the trip (the time and a place or the stored route in common). The row has no other warning and no "mimo trasy" line.</li>
+      <li>"Rozdiel" shows the start difference in min, the km difference in %, and "mimo trasy: N %" when the trip has a stored route.</li>
+      <li>"GPS čas" shows only the times on a matched row, and the full date on a missing row. "(jazdy: N)" marks a row that joins N drives.</li>
+      <li>"Prepísať" on a matched row opens frame 4. A loose row also has "Pridať": a loose match can be another drive. A missing row has "Pridať" (frame 5) and the crossed-out eye "Ignorovať: jazda nepatrí do knihy jázd".</li>
+      <li>The eye calls <code>set_fuelio_drives_ignored</code> for all drives of the row, then loads the report again. An ignored row is grey and has only the open eye "Zrušiť ignorovanie". If a later sync adds a new drive to the run, the row shows again.</li>
+      <li>A click on a row with GPS selects it and draws it on the map (<code>get_fuelio_track</code>): every GPS fix in red, the stored route of the trip in a wider blue line below. The map zooms to both lines.</li>
+      <li>After a load, and when a filter hides the selected row, the first shown row is selected. Before a selection the map is hidden and "Kliknite na riadok so záznamom GPS." shows.</li>
+      <li>Over the map, the panel shows the route of the trip, or the GPS start date for a missing row. A matched trip without a stored route adds "Jazda nemá uloženú trasu.".</li>
+      <li>The map uses Leaflet with OpenStreetMap tiles. The table and the map are side by side only above 1350 px. Below that, the map goes under the table. The table scrolls at 75 % of the screen height.</li>
+    </ul>
+  </section>
+
+  <!-- 4. Overwrite modal -->
+  <section class="frame">
+    <h2>4. "Prepísať": overwrite a trip with the GPS values</h2>
+    <div class="window" style="height:500px">
+      <div class="content dim" style="height:100%"><div class="fsec"><h3 class="heading">Fuelio - kontrola jázd</h3></div></div>
+      <div class="modal fm" style="width:560px">
+        <h4>Prepísať údajmi z Fuelio</h4>
+        <p style="font-weight:500">30.10.2026 08:05 - Kancelária &rarr; Klient Poprad</p>
+        <p class="muted">Vyberte, ktoré údaje jazdy sa nahradia hodnotami z GPS.</p>
+        <p class="wbox">GPS pokrýva len časť jazdy. Km a čas z GPS asi nie sú celá jazda.</p>
+        <table>
+          <tr><td class="lab"><span class="chk"><span class="box"></span>Začiatok</span></td><td class="nw">30.10.2026 08:05</td><td>&rarr;</td><td><b>30.10.2026 08:51</b></td></tr>
+          <tr><td class="lab"><span class="chk"><span class="box"></span>Koniec</span></td><td class="nw">30.10.2026 10:31</td><td>&rarr;</td><td><b>30.10.2026 10:02</b></td></tr>
+          <tr><td class="lab"><span class="chk"><span class="box"></span>Vzdialenosť</span></td><td>135 km</td><td>&rarr;</td><td><b>98.4 km</b><div class="muted small">zaokrúhli sa na celé km; posunie tachometer neskorších jázd</div></td></tr>
+          <tr><td class="lab"><span class="chk"><span class="box"></span>Trasa</span></td><td colspan="3" class="muted small">GPS stopa sa uloží ako trasa jazdy a nahradí uloženú trasu</td></tr>
+        </table>
+        <div class="foot"><span class="bsm">Zrušiť</span><span class="bsm pri dis">Pokračovať</span></div>
+      </div>
+    </div>
+    <ul class="ann">
+      <li>The frame shows a row with "Čiastočné GPS". A row with "Voľné spárovanie" shows "Voľné spárovanie: jazda Fuelio nemusí byť táto jazda." in the same yellow box. The two warnings do not occur on one row.</li>
+      <li>With either warning, all four boxes start empty. On a complete match all four start checked. "Pokračovať" is disabled while no box is checked.</li>
+      <li>Each row shows the book value, then the GPS value. "Začiatok" and "Koniec" write the GPS start and end in whole minutes. "Vzdialenosť" writes the GPS km rounded to whole km.</li>
+      <li>"Trasa" saves the full GPS track as the stored route of the trip (a direct line, no route provider). It replaces the old route.</li>
+      <li>"Pokračovať" first asks for a dry run (<code>apply_fuelio_to_trip</code>, <code>dryRun: true</code>). If "Vzdialenosť" is checked and the rounded GPS km differ from the book km, the dialog changes to "Zápis vzdialenosti trasy" (frame 7). If not, the write runs at once. All checked fields write in one transaction.</li>
+      <li>The backend refuses a new start that moves the trip past another trip, or into another year, and an end before the start. The error shows in red in the dialog, as the English backend text.</li>
+      <li>After the write the dialog closes and the report loads again. The toast says "Jazda bola prepísaná údajmi z Fuelio." or, if no value changed, "Nič sa nezmenilo.". "Zrušiť", Esc or a click outside closes the dialog.</li>
+    </ul>
+  </section>
+
+  <!-- 5. Add modal -->
+  <section class="frame">
+    <h2>5. "Pridať": add a missing drive as a trip</h2>
+    <div class="window" style="height:600px">
+      <div class="content dim" style="height:100%"><div class="fsec"><h3 class="heading">Fuelio - kontrola jázd</h3></div></div>
+      <div class="modal fm" style="width:620px;left:38%">
+        <h4>Pridať jazdu z Fuelio</h4>
+        <p class="muted">Do knihy jázd sa zapíše nová jazda s týmito údajmi. Skontrolujte začiatok a cieľ.</p>
+        <table>
+          <tr><td class="lab">Začiatok</td><td><b>3.11.2026 19:12</b></td></tr>
+          <tr><td class="lab">Koniec</td><td><b>3.11.2026 19:58</b></td></tr>
+          <tr><td class="lab">Vzdialenosť</td><td><b>42 km</b> <span class="muted small">GPS 41.7 km, zaokrúhlené na celé km</span></td></tr>
+          <tr><td class="lab">Odkiaľ</td><td style="position:relative"><span class="sel-in"><span>Klient Trnava - 0.12 km od GPS bodu</span><span>v</span></span></td></tr>
+          <tr><td class="lab">Kam</td><td style="position:relative"><span class="sel-in"><span>+ Nové miesto tu</span><span>v</span></span>
+            <span class="txt-in">Parkovisko</span>
+            <span class="muted small" style="display:block;margin-top:3px">Žiadne známe miesto nablízku. Zadajte názov nového miesta alebo vyberte miesto zo zoznamu. Nové miesto sa vytvorí v bode konca GPS jazdy.</span>
+          </td></tr>
+          <tr><td class="lab">Účel</td><td><span class="txt-in" style="margin-top:0">služobná cesta</span></td></tr>
+          <tr><td colspan="2"><span class="chk"><span class="box on"></span>Uložiť GPS stopu ako trasu jazdy</span></td></tr>
+        </table>
+        <div class="foot"><span class="bsm">Zrušiť</span><span class="bsm pri">Pridať jazdu</span></div>
+      </div>
+      <div class="optlist" style="right:14px;top:250px;padding-top:4px"><div class="muted small" style="padding:2px 10px 4px">"Kam" open:</div>
+              <div class="on">+ Nové miesto tu</div>
+              <div>Pobočka Bratislava - 1.90 km od GPS bodu</div>
+              <div>Hotel - 3.45 km od GPS bodu</div>
+              <div>Domov - 18 km od GPS bodu</div>
+              <div>Klient Trnava - 41 km od GPS bodu</div>
+      </div>
+    </div>
+    <ul class="ann">
+      <li>The dialog opens from "Pridať" on a missing row or a loose row. It shows "Načítavam..." until <code>get_fuelio_add_preview</code> answers.</li>
+      <li>"Začiatok" and "Koniec" are the GPS start and end in whole minutes. "Vzdialenosť" is the GPS km rounded to whole km. These three are not editable.</li>
+      <li>"Odkiaľ" lists every place with coordinates, nearest to the GPS start first. "Kam" lists them nearest to the GPS end first. The distance shows with 2 decimals below 10 km. The frame draws the open "Kam" list at the right, next to the dialog.</li>
+      <li>The backend preselects a known place near the GPS point (BIZ-031). If no place is that near, the select opens on "+ Nové miesto tu" and shows "Žiadne známe miesto nablízku. ...". "+ Nové miesto tu" is always the first option.</li>
+      <li>"+ Nové miesto tu" shows the input "Názov nového miesta". The new place gets the GPS start point (origin) or the GPS end point (destination). The backend refuses a name that the place book already has, and the same new name on both ends.</li>
+      <li>"Účel" suggests the purposes of the vehicle, as the trip grid does.</li>
+      <li>"Uložiť GPS stopu ako trasu jazdy" (checked at open) saves the full GPS track as the stored route of the new trip.</li>
+      <li>If no place has coordinates, the red line "Žiadne miesto nemá polohu. Doplňte polohu na stránke Miesta." shows under the table.</li>
+      <li>"Pridať jazdu" is disabled until both ends have a place or a new name. It asks for a dry run (<code>add_fuelio_trip</code>, <code>dryRun: true</code>). If later trips move, the insert cascade opens (frame 6). If not, the trip saves at once through the normal insert.</li>
+    </ul>
+  </section>
+
+  <!-- 6. Insert cascade -->
+  <section class="frame">
+    <h2>6. After "Pridať jazdu": later trips move ("Posun tachometra")</h2>
+    <div class="window" style="height:400px">
+      <div class="content dim" style="height:100%"><div class="fsec"><h3 class="heading">Fuelio - kontrola jázd</h3></div></div>
+      <div class="modal fm" style="width:660px">
+        <h4>Posun tachometra</h4>
+        <b>Nová jazda posunie 6 nasledujúcich jázd o +42 km.</b>
+        <ul style="margin:0;padding-left:20px"><li>+42 km -- vzdialenosť novej jazdy</li></ul>
+        <table class="tbl">
+          <tr><th>Jazda</th><th>Dátum</th><th>Trasa</th><th class="n">Tachometer teraz</th><th class="n">Tachometer po zmene</th></tr>
+          <tr><td>148</td><td>04.11.2026</td><td>Kancelária -&gt; Domov</td><td class="n">73 963</td><td class="n">74 005</td></tr>
+          <tr><td>149</td><td>05.11.2026</td><td>Domov -&gt; Kancelária</td><td class="n">73 987</td><td class="n">74 029</td></tr>
+          <tr><td colspan="5" class="muted">...</td></tr>
+        </table>
+        <div class="foot"><span class="bsm">Zrušiť</span><span class="bsm">Uložiť a posunúť</span></div>
+      </div>
+    </div>
+    <ul class="ann">
+      <li>This is the insert variant of the cascade dialog of the Jazdy page (Jazdy frame 9). It opens when the dry run moves later trips, or when the last trip of the year moves.</li>
+      <li>"Uložiť a posunúť" runs <code>add_fuelio_trip</code> again with <code>dryRun: false</code>. "Zrušiť" goes back to the add dialog, with the values kept.</li>
+      <li>The odometer of the new trip comes from the chain of the trips before it.</li>
+    </ul>
+  </section>
+
+  <!-- 7. Writeback -->
+  <section class="frame">
+    <h2>7. After "Prepísať" with "Vzdialenosť": "Zápis vzdialenosti trasy"</h2>
+    <div class="window" style="height:470px">
+      <div class="content dim" style="height:100%"><div class="fsec"><h3 class="heading">Fuelio - kontrola jázd</h3></div></div>
+      <div class="modal fm" style="width:660px">
+        <h4>Zápis vzdialenosti trasy</h4>
+        <b>Vzdialenosť jazdy sa zmení z 52 na 62 km.</b>
+        <div><p>Spotreba obdobia: 5.6 -&gt; 5.4 l/100km</p><p>Odchýlka od TP: 9.8 % -&gt; 5.9 % (zákonný limit 20 %)</p></div>
+        <p>Táto zmena posunie 9 nasledujúcich jázd o +10 km.</p>
+        <ul style="margin:0;padding-left:20px"><li>+10 km -- vaša zmena vzdialenosti (52 -&gt; 62 km)</li></ul>
+        <table class="tbl">
+          <tr><th>Jazda</th><th>Dátum</th><th>Trasa</th><th class="n">Tachometer teraz</th><th class="n">Tachometer po zmene</th></tr>
+          <tr><td>147</td><td>03.11.2026</td><td>Klient Trnava -&gt; Kancelária</td><td class="n">73 939</td><td class="n">73 949</td></tr>
+          <tr><td>148</td><td>04.11.2026</td><td>Kancelária -&gt; Domov</td><td class="n">73 963</td><td class="n">73 973</td></tr>
+          <tr><td colspan="5" class="muted">...</td></tr>
+        </table>
+        <div class="foot"><span class="bsm">Zrušiť</span><span class="bsm">Zapísať vzdialenosť</span></div>
+      </div>
+    </div>
+    <ul class="ann">
+      <li>This is the write-back variant of the cascade dialog, the same one that <code>/mapa</code> uses. It opens only when "Vzdialenosť" is checked and the rounded GPS km differ from the book km. It opens also when no later trip moves.</li>
+      <li>The margin lines show the fill-up period before and after the write. The dialog adds one more line if the period crosses the limit ("Pozor: po zápise obdobie prekročí zákonný limit 20 %."), stays over it, or goes back under it.</li>
+      <li>In an open period it shows "Jazda patrí do neuzavretého obdobia. Spotreba sa zatiaľ počíta z hodnoty v TP, takže sa nemení." in place of the two rate lines.</li>
+      <li>With no later trip to move, it shows "Žiadna nasledujúca jazda sa neposunie." and no table.</li>
+      <li>"Zapísať vzdialenosť" runs <code>apply_fuelio_to_trip</code> with <code>dryRun: false</code>. "Zrušiť" goes back to the overwrite dialog.</li>
+    </ul>
+  </section>
+
+  <!-- 8. Toasts -->
+  <section class="frame">
+    <h2>8. Toasts</h2>
+    <div class="window">
+      <div class="toasts">
+        <div class="toast ok"><span>✓ Rok 2026: stiahnuté 3 z 189 jázd v Dropboxe.</span></div>
+        <div class="toast err"><span>✗ Rok 2026: stiahnuté 2 z 189 jázd v Dropboxe. Nepodarilo sa stiahnuť: 1.</span></div>
+        <div class="toast err"><span>✗ Synchronizácia z Dropboxu zlyhala: ...</span></div>
+        <div class="toast ok"><span>✓ Jazda bola prepísaná údajmi z Fuelio.</span></div>
+        <div class="toast info"><span>ℹ Nič sa nezmenilo.</span></div>
+        <div class="toast ok"><span>✓ Jazda bola pridaná do knihy jázd.</span></div>
+        <div class="toast err"><span>✗ Jazda bola pridaná, ale jej trasa sa neuložila: ...</span></div>
+      </div>
+    </div>
+    <ul class="ann">
+      <li>The toasts stack top right and close on their own after a few seconds. The frame shows all texts at once.</li>
+      <li>Sync: green with the count of downloaded drives and of drives in Dropbox. If some files fail, the toast is red and adds "Nepodarilo sa stiahnuť: N.". A failed sync shows the error text after the colon.</li>
+      <li>Overwrite: green if a value or the route changed, blue "Nič sa nezmenilo." if not.</li>
+      <li>Add: green, or red if the trip saved but its route did not. The trip stays in the book in both cases, and the dialog closes, so a second click cannot add it again.</li>
+      <li>Other errors of the page (load, ignore, map track, filter save) show the raw error text in a red toast.</li>
+    </ul>
+  </section>
+
+  <section class="open-points">
+    <h2>Open points (from the code, not fixed)</h2>
+    <ul class="ann">
+      <li>Two code comments say that the Fuelio folder alone turns the page on. The backend needs the three Dropbox secrets (<code>src/lib/api.ts:788</code>, <code>src/routes/+layout.svelte:60</code> against <code>src-tauri/core/src/server/dispatcher.rs:1061-1062</code>).</li>
+      <li>The dialogs show the backend errors raw, and they are English in the Slovak UI. Example: the order guard "The GPS start would move the trip past another trip; ..." (<code>src-tauri/core/src/commands_internal/fuelio_cmd.rs:308-311</code>, shown by <code>src/lib/components/FuelioOverwriteModal.svelte:168</code>).</li>
+      <li>The page and the dialogs have no read-only handling. The dry runs skip the read-only guard (<code>fuelio_cmd.rs:377-380</code> for the overwrite, <code>fuelio_cmd.rs:592-594</code> for the add), so a dialog and the cascade can open, and the final write then fails with an error.</li>
+      <li>The red text "Žiadne miesto nemá polohu. ..." shows when no place has coordinates, but "+ Nové miesto tu" still lets the user add the trip with two new places (<code>src/lib/components/FuelioAddModal.svelte:258-260</code> against <code>:190-203</code>).</li>
+      <li>A partial-GPS row that starts mid-trip has no minutes value, so the "Rozdiel" cell starts with an empty line (<code>src/routes/fuelio/+page.svelte:511-513</code>).</li>
+    </ul>
+  </section>
+
+</div>
+<script>
+(function () {
+  var root = document.documentElement;
+  try { if (window.matchMedia("(prefers-color-scheme: dark)").matches) root.setAttribute("data-theme", "dark"); } catch (e) {}
+  document.getElementById("themebtn").addEventListener("click", function () {
+    root.setAttribute("data-theme", root.getAttribute("data-theme") === "dark" ? "light" : "dark");
+  });
+})();
+</script>
+<script>
+(function () {
+  /* Outside claude.ai (a local file, GitHub Pages, a raw-HTML proxy) the page nav uses the
+     repo files next to this one; on claude.ai it keeps the artifact links. */
+  var h = location.hostname;
+  if (location.protocol === "file:" || /github\.io$|githack\.com$/.test(h)) {
+    var links = document.querySelectorAll("a[data-file]");
+    for (var i = 0; i < links.length; i++) links[i].href = links[i].getAttribute("data-file");
+  }
+})();
+</script>
+</body>
+</html>

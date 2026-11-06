@@ -27,6 +27,14 @@ Explores requirements via brainstorming, then creates structured task folder for
 
 Only proceed to step 2 after brainstorming is complete.
 
+### 1b. Draw the UI change first (UI tasks only)
+
+If the task adds or changes something the user sees (a screen, a dialog, a column, a button,
+a state), use the `mockup` skill ([SKILL.md](../mockup-skill/SKILL.md)) now. It draws the
+change in the page's mockup file in `docs/mockups/`, marked "Návrh (task NN)", publishes it for
+review, and gets the user's approval. Commit the mockup file with the task docs. Write the
+plan only after the approval. Skip this step for a task with no visible change.
+
 ### 2. Determine Next Folder Number
 
 **CRITICAL:** Use the `Glob` tool (not `ls`) to find existing task folders in BOTH locations:
@@ -57,6 +65,12 @@ Create folder and write `_tasks/{NN}-{feature-name}/01-task.md` with brainstormi
 ## Requirements
 
 {Requirements gathered during brainstorming}
+
+## Design
+
+{UI tasks only: the approved frames, from step 1b. Example:
+Frames 4 and 7 of [docs/mockups/jazdy.html](../../docs/mockups/jazdy.html), marked "Návrh (task NN)".
+Leave the section out for a task with no visible change.}
 
 ## Technical Notes
 

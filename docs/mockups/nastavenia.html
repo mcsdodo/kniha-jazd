@@ -1,0 +1,757 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Kniha jázd PC: Nastavenia</title>
+<style>
+/* ===== Shared PC mockup CSS (copy this block to every PC mockup) =====
+   The colour variables copy src/lib/theme.css. The frames stack vertically. */
+:root {
+  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, "Open Sans", "Helvetica Neue", sans-serif;
+  --page-bg: #e9edf0; --page-ink: #2c3e50; --page-muted: #6b7a80;
+  --bg-body: #f5f5f5; --bg-surface: #ffffff; --bg-surface-alt: #fafafa; --bg-header: #2c3e50;
+  --text-primary: #2c3e50; --text-secondary: #7f8c8d; --text-muted: #95a5a6;
+  --text-on-header: #ffffff; --text-on-header-muted: rgba(255,255,255,0.7);
+  --border-default: #e0e0e0; --border-input: #d5dbdb; --shadow-default: rgba(0,0,0,0.1);
+  --accent-primary: #3498db; --accent-success: #27ae60; --accent-success-bg: #e8f8e8;
+  --accent-warning: #d39e00; --accent-danger: #c0392b; --accent-danger-bg: #fee;
+  --input-bg: #ffffff; --btn-secondary-bg: #ecf0f1;
+  --toast-success-bg: #d4edda; --toast-success-color: #155724; --toast-success-border: #c3e6cb;
+  --toast-error-bg: #f8d7da; --toast-error-color: #721c24; --toast-error-border: #f5c6cb;
+  --toast-info-bg: #d1ecf1; --toast-info-color: #0c5460; --toast-info-border: #bee5eb;
+  --warning-bg: #fff3cd; --warning-color: #856404; --warning-border: #ffc107;
+  --badge-danger-bg: #e74c3c; --overlay-bg: rgba(0,0,0,0.5);
+  --accent-primary-light-bg: #ebf5fb; --editing-row-bg: #e3f2fd; --accent-warning-dark: #e67e22;
+  --consumption-warn-bg: #fff3e0;
+  --badge-ice-bg: #e3f2fd; --badge-ice-color: #1565c0; --badge-bev-bg: #e8f5e9; --badge-bev-color: #2e7d32;
+  --badge-phev-bg: #fff3e0; --badge-phev-color: #e65100;
+  --prop: #e67e22; --prop-bg: #fdf0e1;
+  color-scheme: light;
+}
+:root[data-theme="dark"] {
+  --page-bg: #0d0f10; --page-ink: #e0e0e0; --page-muted: #9aa4a8;
+  --bg-body: #121212; --bg-surface: #1e1e1e; --bg-surface-alt: #252525; --bg-header: #1e1e1e;
+  --text-primary: #e0e0e0; --text-secondary: #a0a0a0; --text-muted: #707070;
+  --text-on-header: #e0e0e0; --text-on-header-muted: rgba(255,255,255,0.6);
+  --border-default: #333333; --border-input: #404040; --shadow-default: rgba(0,0,0,0.3);
+  --accent-primary: #5dade2; --accent-success: #58d68d; --accent-success-bg: #1e3d1e;
+  --accent-warning: #f4d03f; --accent-danger: #ec7063; --accent-danger-bg: #3d2020;
+  --input-bg: #2a2a2a; --btn-secondary-bg: #333333;
+  --toast-success-bg: #1e3a1e; --toast-success-color: #58d68d; --toast-success-border: #2a4a2a;
+  --toast-error-bg: #3d2020; --toast-error-color: #ec7063; --toast-error-border: #5a2a2a;
+  --toast-info-bg: #1a3a4a; --toast-info-color: #5dade2; --toast-info-border: #254a5a;
+  --warning-bg: #3d3520; --warning-color: #f4d03f; --warning-border: #8a7020;
+  --accent-primary-light-bg: #1a2a3a; --editing-row-bg: #1a2a3a; --consumption-warn-bg: #3a2a1a;
+  --badge-ice-bg: #1a2a3a; --badge-ice-color: #64b5f6; --badge-bev-bg: #1e3a1e; --badge-bev-color: #81c784;
+  --badge-phev-bg: #3a2a1a; --badge-phev-color: #ffb74d;
+  --prop: #f0a04a; --prop-bg: #3a2a18;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--page-bg); color: var(--page-ink); font-family: var(--font-sans); font-size: 15px; line-height: 1.45; }
+code { font-size: 0.9em; }
+a { color: var(--accent-primary); }
+header.page { padding: 24px 24px 8px; max-width: 1240px; margin: 0 auto; }
+header.page h1 { margin: 0 0 4px; font-size: 1.5rem; text-wrap: balance; }
+header.page p { margin: 4px 0; color: var(--page-muted); max-width: 80ch; }
+.pagenav { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 0.9rem; margin-top: 8px; align-items: center; }
+.pagenav .here { font-weight: 700; color: var(--page-ink); }
+.themebtn { margin-left: auto; font: inherit; font-size: 0.85rem; border: 1px solid var(--page-muted); background: transparent; color: var(--page-ink); border-radius: 6px; padding: 3px 10px; cursor: pointer; }
+.frames { display: flex; flex-direction: column; gap: 36px; padding: 16px 24px 48px; max-width: 1240px; margin: 0 auto; }
+.frame { display: flex; flex-direction: column; gap: 10px; }
+.frame > h2 { margin: 0; font-size: 0.85rem; letter-spacing: 0.06em; text-transform: uppercase; color: var(--page-muted); }
+.window { width: 100%; max-width: 1180px; border: 1px solid var(--border-default); border-radius: 8px; overflow: hidden; background: var(--bg-body); color: var(--text-primary); box-shadow: 0 6px 18px rgba(0,0,0,0.10); position: relative; font-size: 14px; }
+.window .content { padding: 16px 20px; display: flex; flex-direction: column; gap: 14px; }
+.ann { font-size: 0.9rem; color: var(--page-muted); margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 4px; max-width: 95ch; }
+.ann li::marker { color: var(--accent-primary); }
+.ann b, .ann code { color: var(--page-ink); }
+.ann li.prop::marker { color: var(--prop); }
+.ann li.prop b { color: var(--prop); }
+/* Proposal mark: a frame or an element changed by a task, not built yet */
+.open { border: 2px dashed var(--prop); border-radius: 8px; padding: 6px 8px; }
+.open > .tag, .tag.prop { display: inline-block; font-size: 0.72rem; font-weight: 700; color: var(--prop); background: var(--prop-bg); text-transform: uppercase; letter-spacing: 0.05em; padding: 1px 6px; border-radius: 4px; }
+/* App header */
+.apphdr { background: var(--bg-header); color: var(--text-on-header); padding: 10px 20px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; box-shadow: 0 2px 4px var(--shadow-default); }
+.apphdr .left { display: flex; align-items: center; gap: 8px 24px; flex-wrap: wrap; }
+.apphdr .title { font-size: 1.3rem; font-weight: 600; padding: 4px 12px; border-radius: 4px; }
+.apphdr nav { display: flex; gap: 4px; flex-wrap: wrap; }
+.apphdr nav span { color: var(--text-on-header-muted); padding: 6px 12px; border-radius: 4px; font-weight: 500; white-space: nowrap; }
+.apphdr .on { background: rgba(255,255,255,0.2); color: var(--text-on-header) !important; }
+.apphdr .right { display: flex; gap: 14px; align-items: center; font-size: 0.9rem; }
+.apphdr .sel { background: var(--input-bg); color: var(--text-primary); border-radius: 4px; padding: 4px 8px; margin-left: 6px; border: 1px solid var(--border-input); }
+.badge-count { display: inline-block; min-width: 18px; padding: 0 5px; margin-left: 6px; border-radius: 9px; background: var(--badge-danger-bg); color: #fff; font-size: 0.72rem; font-weight: 700; text-align: center; line-height: 18px; }
+.banner-ro { display: flex; gap: 10px; align-items: center; padding: 10px 16px; background: var(--warning-bg); border-bottom: 1px solid var(--warning-border); color: var(--warning-color); font-weight: 500; }
+/* Generic app parts */
+.card { background: var(--bg-surface); border-radius: 8px; padding: 16px; box-shadow: 0 1px 3px var(--shadow-default); display: flex; flex-direction: column; gap: 12px; }
+.card h3 { margin: 0; font-size: 1.15rem; }
+.row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.spread { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; }
+.btn { display: inline-block; padding: 7px 14px; border-radius: 4px; font-weight: 500; font-size: 0.9rem; background: var(--btn-secondary-bg); color: var(--text-primary); border: 1px solid transparent; white-space: nowrap; }
+.btn.primary { background: var(--accent-primary); color: #fff; }
+.btn.success { background: var(--accent-success); color: #fff; }
+.btn.danger { background: var(--accent-danger); color: #fff; }
+.btn.ghost { background: transparent; border-color: var(--border-input); }
+.btn.dis { opacity: 0.45; }
+.btn.sm { padding: 4px 10px; font-size: 0.82rem; }
+.input { display: inline-flex; align-items: center; justify-content: space-between; gap: 6px; border: 1px solid var(--border-input); border-radius: 4px; padding: 5px 8px; background: var(--input-bg); min-width: 60px; font-variant-numeric: tabular-nums; }
+.input.focus { border-color: var(--accent-primary); box-shadow: 0 0 0 2px rgba(52,152,219,0.15); }
+.input.bad { border-color: var(--accent-danger); }
+.hint { color: var(--text-secondary); font-size: 0.85rem; }
+.muted { color: var(--text-secondary); }
+.warn-text { color: var(--accent-warning-dark); font-weight: 600; }
+.err-text { color: var(--accent-danger); }
+.ok-text { color: var(--accent-success); }
+.pill { display: inline-block; padding: 1px 8px; border-radius: 999px; font-size: 0.78rem; font-weight: 600; white-space: nowrap; }
+.pill.ok { background: var(--accent-success-bg); color: var(--accent-success); }
+.pill.bad { background: var(--accent-danger-bg); color: var(--accent-danger); }
+.pill.warn { background: var(--warning-bg); color: var(--warning-color); }
+.pill.info { background: var(--accent-primary-light-bg); color: var(--accent-primary); }
+.chk { display: inline-flex; gap: 6px; align-items: center; }
+.box { display: inline-block; width: 14px; height: 14px; border: 1px solid var(--border-input); border-radius: 3px; background: var(--input-bg); vertical-align: middle; position: relative; }
+.box.on { background: var(--accent-primary); border-color: var(--accent-primary); }
+.box.on::after { content: ""; position: absolute; left: 4px; top: 1px; width: 4px; height: 8px; border: solid #fff; border-width: 0 2px 2px 0; transform: rotate(45deg); }
+.seg { display: inline-flex; border: 1px solid var(--border-input); border-radius: 4px; overflow: hidden; font-size: 0.82rem; }
+.seg span { padding: 4px 10px; }
+.seg span.on { background: var(--accent-primary); color: #fff; }
+.toast { position: absolute; top: 12px; right: 12px; z-index: 5; display: flex; gap: 10px; align-items: center; padding: 10px 14px; border-radius: 6px; border: 1px solid; font-size: 0.9rem; box-shadow: 0 4px 12px var(--shadow-default); }
+.toast.ok { background: var(--toast-success-bg); color: var(--toast-success-color); border-color: var(--toast-success-border); }
+.toast.err { background: var(--toast-error-bg); color: var(--toast-error-color); border-color: var(--toast-error-border); }
+.toast.info { background: var(--toast-info-bg); color: var(--toast-info-color); border-color: var(--toast-info-border); }
+.toast .act { font-weight: 700; text-decoration: underline; }
+.dim { position: relative; }
+.dim::after { content: ""; position: absolute; inset: 0; background: var(--overlay-bg); z-index: 2; }
+.modal { position: absolute; left: 50%; top: 40px; transform: translateX(-50%); z-index: 3; background: var(--bg-surface); color: var(--text-primary); border-radius: 8px; box-shadow: 0 10px 30px rgba(0,0,0,0.3); padding: 18px 20px; display: flex; flex-direction: column; gap: 12px; width: 520px; max-width: 92%; }
+.modal h4 { margin: 0; font-size: 1.15rem; display: flex; justify-content: space-between; }
+.modal .foot { display: flex; justify-content: flex-end; gap: 8px; margin-top: 4px; }
+.mapbox { height: 220px; border-radius: 6px; border: 1px solid var(--border-default); position: relative; overflow: hidden; background: linear-gradient(135deg, color-mix(in srgb, var(--accent-success) 10%, var(--bg-surface)), color-mix(in srgb, var(--accent-primary) 10%, var(--bg-surface))); }
+.mapbox svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+.tbl { width: 100%; border-collapse: collapse; font-size: 0.85rem; font-variant-numeric: tabular-nums; }
+.tbl th, .tbl td { padding: 5px 6px; text-align: left; border-bottom: 1px solid var(--border-default); white-space: nowrap; }
+.tbl th { background: var(--bg-surface-alt); font-weight: 600; color: var(--text-secondary); }
+.tbl td.n, .tbl th.n { text-align: right; }
+.open-points { border: 1px solid var(--border-default); border-radius: 8px; padding: 12px 16px; background: var(--bg-surface); color: var(--text-primary); }
+.open-points h2 { margin: 0 0 6px; font-size: 1rem; }
+/* ===== End of the shared CSS ===== */
+
+/* Page-specific: settings page. Colours copy the rules of src/routes/settings/+page.svelte.
+   The hex values with no variable are the CSS fallbacks of the page: theme.css does not define
+   --color-success*, --color-error*, --accent-light, --accent, so they stay the same in dark mode. */
+:root { --btn-primary-light-bg: #d4edda; --btn-primary-light-color: #155724; --btn-active-primary-bg: #3498db; --btn-active-primary-color: #ffffff; --font-mono: Consolas, Monaco, "Courier New", monospace; }
+:root[data-theme="dark"] { --btn-primary-light-bg: #1e3a1e; --btn-primary-light-color: #58d68d; --btn-active-primary-bg: #1a3a5c; --btn-active-primary-color: #5dade2; }
+.sp { width: 100%; max-width: 800px; margin: 0 auto; display: flex; flex-direction: column; gap: 22px; padding: 18px 0 24px; }
+.sp > h1 { margin: 0; font-size: 1.7rem; color: var(--text-primary); }
+.sec { background: var(--bg-surface); padding: 18px 22px; border-radius: 8px; box-shadow: 0 1px 3px var(--shadow-default); display: flex; flex-direction: column; gap: 14px; }
+.sec > h2 { margin: 0 0 2px; font-size: 1.25rem; color: var(--text-primary); }
+.sub { margin: 6px 0 0; font-size: 0.85rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-secondary); }
+.sub:first-of-type { margin-top: 0; }
+.fg { display: flex; flex-direction: column; gap: 6px; }
+.fg > label, .fg > .lbl { font-weight: 500; color: var(--text-primary); font-size: 0.9rem; }
+.fin { border: 1px solid var(--border-input); border-radius: 4px; padding: 8px 10px; background: var(--input-bg); color: var(--text-primary); min-height: 36px; display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.fin.ph { color: var(--text-muted); }
+.fin.mono { font-family: var(--font-mono); }
+.fin.dis { background: transparent; color: var(--text-secondary); }
+.fin.err { border-color: #dc2626; }
+.fin.focus { border-color: var(--accent-primary); }
+.fin .dd { color: var(--text-secondary); }
+.iwi { display: flex; gap: 6px; align-items: center; }
+.iwi .fin { flex: 1; }
+.eye { width: 30px; height: 30px; display: inline-flex; align-items: center; justify-content: center; color: var(--text-secondary); }
+.eye.dis { opacity: 0.4; }
+.hs { font-size: 0.85rem; color: var(--text-secondary); }
+.errs { font-size: 0.85rem; color: #dc2626; }
+.cbl { display: flex; align-items: center; gap: 8px; color: var(--text-primary); }
+.cbl.dis { opacity: 0.55; }
+.cbl .box { width: 16px; height: 16px; }
+.fs { border: 1px solid var(--border-default); border-radius: 6px; padding: 8px 12px 10px; margin: 0; }
+.fs legend { font-weight: 500; padding: 0 4px; }
+.radio { display: flex; align-items: center; gap: 8px; padding: 5px 6px; }
+.rb { width: 16px; height: 16px; border-radius: 50%; border: 1px solid var(--border-input); background: var(--input-bg); position: relative; display: inline-block; }
+.rb.on { border-color: var(--accent-primary); }
+.rb.on::after { content: ""; position: absolute; inset: 3px; border-radius: 50%; background: var(--accent-primary); }
+.env-badge { display: inline-block; margin-left: 8px; padding: 0 5px; border: 1px solid var(--text-secondary); border-radius: 3px; background: transparent; color: var(--text-secondary); font-family: var(--font-mono); font-size: 0.68rem; font-weight: 500; vertical-align: middle; }
+.ha-status { display: flex; align-items: center; gap: 8px; padding: 8px 12px; border-radius: 6px; font-size: 0.875rem; font-weight: 500; }
+.ha-status.connected { background: #dcfce7; color: #16a34a; }
+.ha-status.disconnected { background: #fee2e2; color: #dc2626; }
+.ha-status.testing { background: var(--bg-surface-alt); color: var(--text-secondary); }
+.cfh { display: flex; justify-content: space-between; align-items: center; }
+.cfh h3 { margin: 0; font-size: 1rem; }
+/* buttons of the page */
+.b { display: inline-block; padding: 9px 18px; border-radius: 4px; font-weight: 500; background: var(--btn-active-primary-bg); color: var(--btn-active-primary-color); white-space: nowrap; align-self: flex-start; }
+.b.dis { opacity: 0.5; }
+.bs { display: inline-block; padding: 5px 12px; border-radius: 4px; font-size: 0.85rem; font-weight: 500; background: var(--btn-secondary-bg); color: var(--text-primary); white-space: nowrap; }
+.bs.primary { background: var(--btn-primary-light-bg); color: var(--btn-primary-light-color); }
+.bs.danger { background: var(--accent-danger-bg); color: var(--accent-danger); }
+.bs.dis { opacity: 0.5; }
+.bnat { display: inline-block; padding: 3px 10px; border: 1px solid #8f8f9d; border-radius: 3px; background: #e9e9ed; color: #000; font-size: 0.85rem; }
+/* version */
+.verbox { display: flex; align-items: center; gap: 12px; padding: 10px 12px; background: var(--bg-surface-alt); border: 1px solid var(--border-default); border-radius: 4px; }
+.verbox .num { flex: 1; font-weight: 600; font-family: var(--font-mono); }
+/* vehicles */
+.vlist { display: flex; flex-direction: column; gap: 10px; }
+.vitem { display: flex; justify-content: space-between; align-items: center; padding: 14px 16px; border: 1px solid var(--border-default); border-radius: 4px; background: var(--bg-surface-alt); }
+.vinfo { display: flex; flex-direction: column; gap: 4px; }
+.vinfo strong { font-size: 1rem; }
+.vinfo .plate { font-size: 0.875rem; color: var(--text-secondary); font-weight: 500; }
+.vinfo .det { font-size: 0.75rem; color: var(--text-muted); }
+.vb { display: block; padding: 3px 8px; border-radius: 3px; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; }
+.vb.ice { background: var(--badge-ice-bg); color: var(--badge-ice-color); }
+.vb.bev { background: var(--badge-bev-bg); color: var(--badge-bev-color); }
+.vb.phev { background: var(--badge-phev-bg); color: var(--badge-phev-color); }
+.vb.active { background: var(--btn-primary-light-bg); color: var(--btn-primary-light-color); }
+.vb.odo { background: #dcfce7; color: #16a34a; }
+.vact { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+/* backups */
+.ret { padding: 14px 16px; background: var(--bg-surface-alt); border: 1px solid var(--border-default); border-radius: 8px; display: flex; flex-direction: column; gap: 10px; }
+.ret h4 { margin: 0; font-size: 0.9rem; color: var(--text-secondary); }
+.sel-s { display: inline-block; border: 1px solid var(--border-input); border-radius: 3px; padding: 1px 6px; background: var(--input-bg); }
+.cprev { display: flex; align-items: center; gap: 16px; }
+.blist h3 { margin: 4px 0 10px; font-size: 1rem; }
+.bitem { display: flex; justify-content: space-between; align-items: center; padding: 10px 12px; border: 1px solid var(--border-default); border-radius: 4px; background: var(--bg-surface-alt); margin-bottom: 8px; }
+.binfo { display: flex; gap: 16px; align-items: center; }
+.binfo .d { font-weight: 500; }
+.binfo .s { color: var(--text-secondary); font-size: 0.875rem; }
+.bbadge { font-size: 0.75rem; padding: 2px 8px; background: #e3f2fd; color: #1976d2; border-radius: 4px; }
+/* page modals (settings modals: max-width 400px; VehicleModal: 500px) */
+.modal.m400 { width: 400px; }
+.modal h3.mt { margin: 0; font-size: 1.15rem; }
+.warnbox { color: var(--accent-danger); background: var(--accent-danger-bg); padding: 8px 10px; border-radius: 4px; font-weight: 500; }
+.vm { position: absolute; left: 50%; top: 24px; transform: translateX(-50%); z-index: 3; width: 500px; max-width: 92%; background: var(--bg-surface); border-radius: 8px; box-shadow: 0 4px 12px var(--shadow-default); }
+.vm .vh { display: flex; justify-content: space-between; align-items: center; padding: 16px 22px; border-bottom: 1px solid var(--border-default); }
+.vm .vh h4 { margin: 0; font-size: 1.25rem; }
+.vm .vh .x { font-size: 1.8rem; line-height: 1; color: var(--text-secondary); }
+.vm .vbody { padding: 16px 22px; display: flex; flex-direction: column; gap: 12px; }
+.vm .vbody .fin { padding: 7px 10px; background: var(--bg-surface); }
+.vm .vbody .fin.lock { background: var(--bg-surface-alt); color: var(--text-muted); }
+.vm .vbody .vhint { font-size: 0.75rem; color: var(--text-secondary); font-style: italic; }
+.vm .secth { font-weight: 600; font-size: 0.9rem; margin-top: 6px; padding-bottom: 4px; border-bottom: 1px solid var(--border-default); }
+.vm .vf { display: flex; justify-content: flex-end; gap: 10px; padding: 16px 22px; border-top: 1px solid var(--border-default); }
+.vm .vf .b { align-self: auto; }
+.vm .vf .b.sec2 { background: var(--btn-secondary-bg); color: var(--text-primary); }
+.twin { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; align-items: start; }
+</style>
+</head>
+<body>
+<header class="page">
+  <h1>Kniha jázd on the PC: Nastavenia (current state)</h1>
+  <p>The settings page at <code>/settings</code> and its dialogs, as they work on <code>main</code>. The example data is invented. The UI text is Slovak, as in the app. The notes under each frame say what the screen does.</p>
+  <p>The source is <code>docs/mockups/nastavenia.html</code> in the repo. Its git history shows when the page changed.</p>
+  <p>An orange dashed box with the tag "Návrh (task NN)" marks a proposal that is not built yet. This page has no open proposal.</p>
+  <div class="pagenav" id="pagenav">
+    <a href="https://claude.ai/artifact/PCbcTRe6EybiezMCqH8rm2" data-file="jazdy.html">Jazdy</a><a href="https://claude.ai/artifact/Nvtcv8rofbFtVG4BNbAoMr" data-file="doklady.html">Doklady</a><a href="https://claude.ai/artifact/RgyA56LvfFjRHpgMcYG3ku" data-file="fuelio.html">Fuelio</a><a href="https://claude.ai/artifact/F3fXHbFEaERHHcKC4tr215" data-file="mapa.html">Mapa</a><a href="https://claude.ai/artifact/T2jiZ3ZLGs9s1F89UZP9eE" data-file="miesta.html">Miesta</a>
+    <span class="here">Nastavenia</span>
+    <a href="https://claude.ai/artifact/TyYTKii3cU4ryvN98giUGW" data-file="mobil.html">Mobil</a>
+    <button class="themebtn" type="button" id="themebtn">Dark / light</button>
+  </div>
+</header>
+
+<div class="frames">
+
+  <!-- 1. Top: Jazyk + Predvoľby -->
+  <section class="frame">
+    <h2>1. Page top: Jazyk and Predvoľby</h2>
+    <div class="window">
+      <div class="apphdr">
+        <div class="left">
+          <span class="title">Kniha Jázd</span>
+          <nav><span>Doklady<span class="badge-count">3</span></span><span>Miesta</span><span>Fuelio</span><span class="on">Nastavenia</span></nav>
+        </div>
+        <div class="right">
+          <span>Vozidlo:<span class="sel">Škoda Octavia (BA123XY) v</span></span>
+          <span>Rok:<span class="sel">2026 v</span></span>
+        </div>
+      </div>
+      <div class="sp">
+        <h1>Nastavenia</h1>
+        <div class="sec">
+          <h2>Jazyk</h2>
+          <div class="fg"><label>Jazyk aplikácie</label><span class="fin">Slovenčina <span class="dd">v</span></span></div>
+        </div>
+        <div class="sec">
+          <h2>Predvoľby</h2>
+          <h3 class="sub">Vzhľad</h3>
+          <fieldset class="fs">
+            <legend>Téma</legend>
+            <div class="radio"><span class="rb on"></span>Podľa systému</div>
+            <div class="radio"><span class="rb"></span>Svetlá</div>
+            <div class="radio"><span class="rb"></span>Tmavá</div>
+          </fieldset>
+          <div class="fg">
+            <span class="cbl"><span class="box on"></span>Zobraziť výber dátumu a času</span>
+            <span class="hs">V úprave jazdy zobrazí vedľa začiatku a konca tlačidlo s kalendárom. Dátum a čas môžete vždy napísať aj priamo, napríklad 9.10 1430.</span>
+          </div>
+          <h3 class="sub">Nové záznamy</h3>
+          <div class="fg">
+            <span class="cbl"><span class="box"></span>Automaticky vyplniť časy podľa poslednej trasy</span>
+            <span class="hs">Pri novom zázname po výbere trasy doplní začiatok a koniec z poslednej rovnakej cesty (s malou náhodnou odchýlkou).</span>
+          </div>
+          <h3 class="sub">Export</h3>
+          <div class="fg">
+            <span class="cbl"><span class="box"></span>Tlačiť knihu jázd vždy v jednotnom tvare</span>
+            <span class="hs">Export bude vždy vzostupne (najstaršia jazda hore) a so všetkými stĺpcami, bez ohľadu na zoradenie a skryté stĺpce v tabuľke. Ak je vypnuté, export sa riadi zobrazením tabuľky.</span>
+          </div>
+        </div>
+      </div>
+    </div>
+    <ul class="ann">
+      <li>The page is one column of 8 sections, 800 px wide, in this order: Jazyk, Predvoľby, Home Assistant, Paperless-ngx, Verzia, Vozidlá, Nastavenia spoločnosti, Záloha databázy. It has no save button: each control saves on its own.</li>
+      <li>The header is the same as on all PC pages (see the Jazdy mockup). "Nastavenia" has the lighter background here.</li>
+      <li>"Jazyk aplikácie" has two options: "Slovenčina" and "English". The choice changes the UI at once. It is stored in this browser only (localStorage key <code>kniha-jazd-locale</code>). With no stored choice, the app uses the browser language: Slovak for "sk", else English.</li>
+      <li>"Téma" saves at once (<code>set_theme_preference</code>) and applies the theme. "Podľa systému" follows the dark or light setting of the system and changes when the system changes.</li>
+      <li>The three checkboxes save at once with <code>set_show_datetime_picker</code>, <code>set_infer_trip_times</code> and <code>set_export_normalized</code>. They show no toast.</li>
+      <li>Defaults: "Zobraziť výber dátumu a času" is on. "Automaticky vyplniť časy podľa poslednej trasy" and "Tlačiť knihu jázd vždy v jednotnom tvare" are off.</li>
+      <li>The theme and the three checkboxes are stored on the server in <code>local.settings.json</code>, so each browser gets the same values. Only the language is per browser.</li>
+      <li>The effect of each checkbox is on the Jazdy page: the calendar button in the row editor, the time fill of a new row, and the form of "Export pre tlač" and "Export do Excelu".</li>
+    </ul>
+  </section>
+
+  <!-- 2. Home Assistant -->
+  <section class="frame">
+    <h2>2. Home Assistant, set in the app</h2>
+    <div class="window">
+      <div class="toast ok"><span>✓</span><span>Nastavenia boli úspešne uložené</span></div>
+      <div class="sp">
+        <div class="sec">
+          <h2>Home Assistant</h2>
+          <div class="fg">
+            <label>URL servera</label>
+            <span class="fin">http://homeassistant.local:8123</span>
+            <span class="hs">Adresa vášho Home Assistant servera</span>
+          </div>
+          <div class="fg">
+            <label>API Token</label>
+            <div class="iwi"><span class="fin mono ph">********</span><span class="eye" title="Zobraziť"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg></span></div>
+            <span class="hs">Token je nastavený</span>
+          </div>
+          <div class="ha-status connected"><span>✓</span><span>Pripojené</span></div>
+        </div>
+        <div class="sec">
+          <h2>Home Assistant</h2>
+          <div class="fg">
+            <label>URL servera</label>
+            <span class="fin err">homeassistant.local:8123|</span>
+            <span class="errs">URL musí začínať http:// alebo https://</span>
+          </div>
+          <div class="fg">
+            <label>API Token</label>
+            <div class="iwi"><span class="fin mono ph">Zadajte dlhodobý prístupový token</span><span class="eye dis"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg></span></div>
+            <span class="hs">Dlhodobý prístupový token z Home Assistant (Profil → Bezpečnosť)</span>
+          </div>
+        </div>
+      </div>
+    </div>
+    <ul class="ann">
+      <li>Upper card: a saved URL and token, connected. Lower card: nothing saved yet, and an invalid URL typed.</li>
+      <li>Both fields save 800 ms after the last key, and again on blur (<code>save_ha_settings</code>). A save shows the toast "Nastavenia boli úspešne uložené". It then tests the connection again.</li>
+      <li>The URL must start with <code>http://</code> or <code>https://</code>. An invalid URL gets a red border and the red hint, and it does not save.</li>
+      <li>The page never gets the token. A saved token shows the placeholder "********" and the hint "Token je nastavený". A typed token shows as dots.</li>
+      <li>The eye button ("Zobraziť" / "Skryť") is disabled when no token is saved. A click opens the PIN prompt (frame 4). A second click hides the token again.</li>
+      <li>The status line shows only when a URL and a token exist. It shows "⏳ Testujem..." first, then "✓ Pripojené" or "✗ Nepripojené" (<code>test_ha_connection</code>, a GET of <code>/api/</code> with a timeout). It runs on page load and after each save.</li>
+      <li>When connected, the page reads the odometer of each vehicle with an "ODO senzor" (<code>fetch_ha_odo</code>). The result is the green badge in Vozidlá (frame 6). No timer refreshes it. It loads on page load and after an HA save.</li>
+      <li>The vehicle dialog shows the three sensor fields only when a URL and a saved token exist (frame 7).</li>
+      <li>The green and red status colours are fixed values, so they stay light in dark mode.</li>
+    </ul>
+  </section>
+
+  <!-- 3. HA env -->
+  <section class="frame">
+    <h2>3. Home Assistant, set by env vars</h2>
+    <div class="window">
+      <div class="sp">
+        <div class="sec">
+          <h2>Home Assistant</h2>
+          <div class="fg">
+            <label>URL servera <span class="env-badge" title="Táto hodnota je nastavená premennou prostredia HA_URL a nedá sa tu zmeniť.">HA_URL</span></label>
+            <span class="fin dis">http://homeassistant.local:8123</span>
+            <span class="hs">Spravované premennou prostredia.</span>
+          </div>
+          <div class="fg">
+            <label>API Token <span class="env-badge">HA_API_TOKEN</span></label>
+            <div class="iwi"><span class="fin mono dis">********</span><span class="eye"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg></span></div>
+            <span class="hs">Spravované premennou prostredia.</span>
+          </div>
+          <div class="ha-status disconnected"><span>✗</span><span>Nepripojené</span></div>
+        </div>
+      </div>
+    </div>
+    <ul class="ann">
+      <li>The env vars <code>HA_URL</code> and <code>HA_API_TOKEN</code> override the saved values (<code>get_ha_settings</code> returns <code>urlFromEnv</code> and <code>tokenFromEnv</code>). Each one locks its field on its own.</li>
+      <li>A locked field is disabled. Its label has a badge with the env var name. The badge tooltip is "Táto hodnota je nastavená premennou prostredia HA_URL a nedá sa tu zmeniť." The hint is "Spravované premennou prostredia."</li>
+      <li>With one field locked, a save sends only the other field. With both locked, the page saves nothing. The backend also refuses a write to a locked field.</li>
+      <li>The eye button stays active for a token from <code>HA_API_TOKEN</code>. The reveal shows the value from the env var, which is the value in use.</li>
+      <li>"✗ Nepripojené" shows when the test fails or the server does not answer in time.</li>
+    </ul>
+  </section>
+
+  <!-- 4. PIN -->
+  <section class="frame">
+    <h2>4. PIN prompt (eye button)</h2>
+    <div class="window" style="height:400px">
+      <div class="content dim" style="height:100%">
+        <div class="sp" style="padding-top:0"><div class="sec"><h2>Home Assistant</h2></div></div>
+      </div>
+      <div class="modal m400">
+        <h3 class="mt">Zadajte PIN</h3>
+        <span class="hint">Na zobrazenie citlivej hodnoty je potrebný PIN.</span>
+        <div class="fg">
+          <label>PIN</label>
+          <span class="fin mono focus">••••</span>
+          <span class="errs">Incorrect PIN.</span>
+        </div>
+        <div class="foot"><span class="bnat">Zrušiť</span><span class="bnat">Zobraziť</span></div>
+      </div>
+    </div>
+    <ul class="ann">
+      <li>The eye button of the HA token and of the Paperless token opens this prompt. It asks on each reveal. The page keeps no PIN.</li>
+      <li>"Zobraziť" or Enter sends <code>reveal_secret</code> with the field and the PIN. A correct PIN closes the prompt and shows the token as text in the field. The eye icon changes to "Skryť".</li>
+      <li>The PIN is the env var <code>KNIHA_JAZD_REVEAL_PIN</code> on the server. Without it, no reveal is possible. The prompt then shows "Revealing secrets is disabled: KNIHA_JAZD_REVEAL_PIN is not set on the server."</li>
+      <li>A wrong PIN shows "Incorrect PIN." and the prompt stays open. After some wrong PINs the backend locks the reveal for a time that grows with each lock (ADR-027). The text is "Too many incorrect PIN attempts. Try again in N seconds."</li>
+      <li>These three error texts come from the backend in English. They are not in the i18n files.</li>
+      <li>"Zrušiť" closes the prompt. A click on the dark area or Esc does not close it.</li>
+      <li>A revealed token goes away when the page closes.</li>
+    </ul>
+  </section>
+
+  <!-- 5. Paperless -->
+  <section class="frame">
+    <h2>5. Paperless-ngx</h2>
+    <div class="window">
+      <div class="sp">
+        <div class="sec">
+          <h2>Paperless-ngx</h2>
+          <p class="hs" style="margin:0">Načítaj doklady priamo z Paperless-ngx (filtruje podľa tagov fuel/car).</p>
+          <span class="cbl"><span class="box on"></span>Povoliť Paperless-ngx</span>
+          <div class="fg"><label>URL</label><span class="fin">https://documents.priklad.sk</span></div>
+          <div class="fg">
+            <label>API token (PAT)</label>
+            <div class="iwi"><span class="fin mono ph">********</span><span class="eye"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg></span></div>
+            <span class="hs">Token je nastavený</span>
+          </div>
+          <div class="fg">
+            <div class="cfh"><h3>Vlastné polia</h3><span class="bs">Obnoviť zoznam polí</span></div>
+            <span class="hs">Vyber, ktoré polia z tvojho Paperless servera obsahujú dátum, litre a sumu.</span>
+          </div>
+          <div class="fg"><label>Pole pre dátum/čas</label><span class="fin">receipt_datetime (string) <span class="dd">v</span></span><span class="hs">(predvolené: receipt_datetime)</span></div>
+          <div class="fg"><label>Pole pre litre</label><span class="fin">liters (float) <span class="dd">v</span></span><span class="hs">(predvolené: liters)</span></div>
+          <div class="fg"><label>Pole pre sumu</label><span class="fin">total_price_eur (monetary) <span class="dd">v</span></span><span class="hs">(predvolené: total_price_eur)</span></div>
+          <div class="ha-status connected"><span>✓</span><span>Pripojené</span></div>
+        </div>
+      </div>
+    </div>
+    <ul class="ann">
+      <li>"URL" and "API token (PAT)" save like the HA fields: 800 ms after the last key and on blur (<code>save_paperless_settings</code>), with the same URL check ("Neplatná URL") and the same toast.</li>
+      <li>"Povoliť Paperless-ngx" is disabled until a URL and a token are saved. Its tooltip is then "Najprv nastav URL a token". A change saves at once (<code>save_paperless_settings</code> with <code>enabled</code>). If the save fails, the checkbox goes back.</li>
+      <li>The status line uses the HA style: "Testujem…", "✓ Pripojené" or "✗ Nepripojené" (<code>test_paperless_connection</code>). It runs on page load and after a URL or token save, also when Paperless is disabled. It also runs when Paperless is enabled. An uncheck hides it.</li>
+      <li>"Vlastné polia" shows only when a URL and a token are saved. On page load the page reads the custom fields of the Paperless server (<code>list_paperless_custom_fields</code>). "Obnoviť zoznam polí" reads them again. During the read it shows "Načítavam vlastné polia…". A failure shows "Nepodarilo sa načítať vlastné polia z Paperless. Skontroluj nastavenia a skús obnoviť."</li>
+      <li>Each select lists only the fields of a usable type, as "name (type)". Dátum/čas: string, date. Litre: float, integer. Suma: float, monetary, integer.</li>
+      <li>The first option of each select is "(predvolené: receipt_datetime)", "(predvolené: liters)" or "(predvolené: total_price_eur)". It clears the choice. The same text shows again as the hint under the select.</li>
+      <li>A select change saves at once. The page then reads the settings back, so the select shows the name in use, also the default name.</li>
+      <li>A select with no usable field is disabled, with the hint "Žiadne kompatibilné pole — vytvor v Paperless pole správneho typu."</li>
+    </ul>
+  </section>
+
+  <!-- 5b. Paperless env -->
+  <section class="frame">
+    <h2>5b. Paperless-ngx, set by env vars</h2>
+    <div class="window">
+      <div class="sp">
+        <div class="sec">
+          <h2>Paperless-ngx</h2>
+          <p class="hs" style="margin:0">Načítaj doklady priamo z Paperless-ngx (filtruje podľa tagov fuel/car).</p>
+          <span class="cbl dis" title="Táto hodnota je nastavená premennou prostredia PAPERLESS_ENABLED a nedá sa tu zmeniť."><span class="box on"></span>Povoliť Paperless-ngx <span class="env-badge">PAPERLESS_ENABLED</span></span>
+          <div class="fg"><label>URL <span class="env-badge">PAPERLESS_URL</span></label><span class="fin dis">https://documents.priklad.sk</span><span class="hs">Spravované premennou prostredia.</span></div>
+          <div class="fg">
+            <label>API token (PAT) <span class="env-badge">PAPERLESS_API_TOKEN</span></label>
+            <div class="iwi"><span class="fin mono dis">********</span><span class="eye"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg></span></div>
+            <span class="hs">Spravované premennou prostredia.</span>
+          </div>
+          <div class="fg"><div class="cfh"><h3>Vlastné polia</h3><span class="bs">Obnoviť zoznam polí</span></div></div>
+          <div class="hs">...</div>
+        </div>
+      </div>
+    </div>
+    <ul class="ann">
+      <li>Three env vars lock three controls: <code>PAPERLESS_URL</code>, <code>PAPERLESS_API_TOKEN</code> and <code>PAPERLESS_ENABLED</code>. Each one locks its control on its own, with the badge and the hint as in frame 3.</li>
+      <li>On the checkbox the env tooltip sits on the whole label. The checkbox has no hint line.</li>
+      <li>The custom-field selects stay editable with all env vars set.</li>
+    </ul>
+  </section>
+
+  <!-- 6. Verzia + Vozidlá -->
+  <section class="frame">
+    <h2>6. Verzia and Vozidlá</h2>
+    <div class="window">
+      <div class="sp">
+        <div class="sec">
+          <h2>Verzia</h2>
+          <div class="verbox"><span class="num">2.8.0</span><a href="#" onclick="return false">Zobraziť zmeny</a></div>
+        </div>
+        <div class="sec">
+          <h2>Vozidlá</h2>
+          <div class="vlist">
+            <div class="vitem">
+              <div class="vinfo">
+                <strong>Škoda Octavia</strong>
+                <span class="plate">BA123XY</span>
+                <span class="det">50L | 5.1 L/100km</span>
+                <span class="vb ice">Ice</span>
+                <span class="vb active">Aktívne</span>
+                <span class="vb odo" title="Home Assistant ODO">🚗 73 902 km</span>
+              </div>
+              <div class="vact"><span class="bs">Upraviť</span><span class="bs danger">Odstrániť</span></div>
+            </div>
+            <div class="vitem">
+              <div class="vinfo">
+                <strong>Škoda Enyaq</strong>
+                <span class="plate">BA456EV</span>
+                <span class="det">75 kWh | 18 kWh/100km</span>
+                <span class="vb bev">Bev</span>
+              </div>
+              <div class="vact"><span class="bs">Upraviť</span><span class="bs primary">Nastaviť ako aktívne</span><span class="bs danger">Odstrániť</span></div>
+            </div>
+            <div class="vitem">
+              <div class="vinfo">
+                <strong>Škoda Superb iV</strong>
+                <span class="plate">BA789PH</span>
+                <span class="det">66L + 13 kWh</span>
+                <span class="vb phev">Phev</span>
+              </div>
+              <div class="vact"><span class="bs">Upraviť</span><span class="bs primary">Nastaviť ako aktívne</span><span class="bs danger">Odstrániť</span></div>
+            </div>
+          </div>
+          <span class="b">+ Pridať vozidlo</span>
+        </div>
+      </div>
+    </div>
+    <ul class="ann">
+      <li>"Verzia" shows the build version (<code>get_app_version</code>), or "..." while it loads. "Zobraziť zmeny" opens <code>CHANGELOG.md</code> on GitHub in a new tab. The page has no update check.</li>
+      <li>Each vehicle row has the name, the plate, a detail line, and the badges, each on its own line. The badge CSS sets upper case, so the type shows as ICE, BEV or PHEV.</li>
+      <li>The detail line depends on the type. ICE: "tank L | TP rate L/100km". BEV: "battery kWh | baseline kWh/100km". PHEV: "tank L + battery kWh". An empty value shows as 0.</li>
+      <li>"Aktívne" marks the active vehicle. Only the other rows have "Nastaviť ako aktívne" (<code>set_active_vehicle</code>).</li>
+      <li>The green "🚗 ... km" badge (tooltip "Home Assistant ODO") shows only for a vehicle with an "ODO senzor" when HA is connected and the sensor answers (<code>fetch_ha_odo</code>). The number uses the Slovak format.</li>
+      <li>"Upraviť" opens the vehicle dialog with the values (frame 7). "Odstrániť" opens a confirm (frame 8).</li>
+      <li>"+ Pridať vozidlo" opens the empty dialog. With no vehicle the list shows "Žiadne vozidlá. Vytvorte prvé vozidlo."</li>
+      <li>After each change the page reloads the list (<code>get_vehicles</code>). A save shows "Vozidlo bolo úspešne uložené" and a delete shows "Vozidlo bolo odstránené". "Nastaviť ako aktívne" shows a toast only on an error, for example "Nepodarilo sa nastaviť aktívne vozidlo: ...".</li>
+    </ul>
+  </section>
+
+  <!-- 7. Vehicle modal -->
+  <section class="frame">
+    <h2>7. Vehicle dialog: ICE edit (left) and BEV add (right)</h2>
+    <div class="twin">
+      <div class="window" style="height:1210px">
+        <div class="content dim" style="height:100%"><div class="sp" style="padding-top:0"><div class="sec"><h2>Vozidlá</h2></div></div></div>
+        <div class="vm" style="width:500px">
+          <div class="vh"><h4>Upraviť vozidlo</h4><span class="x">&times;</span></div>
+          <div class="vbody">
+            <div class="fg"><label>Názov vozidla</label><span class="fin">Škoda Octavia</span></div>
+            <div class="fg"><label>Evidenčné číslo (EČV)</label><span class="fin">BA123XY</span></div>
+            <div class="fg"><label>Typ vozidla</label><span class="fin lock">Spaľovacie (ICE) <span class="dd">v</span></span><span class="vhint">Typ vozidla nie je možné zmeniť po vytvorení záznamov</span></div>
+            <div class="fg"><label>Počiatočný stav ODO (km)</label><span class="fin">54771</span></div>
+            <div class="fg"><label>VIN</label><span class="fin">TMBJJ7NE0K0123456</span></div>
+            <div class="fg"><label>Vodič</label><span class="fin">Ján Novák</span></div>
+            <div class="fg"><label>ODO senzor</label><span class="fin">sensor.auto_odometer</span><span class="vhint">Entity ID senzora odometra z Home Assistant</span></div>
+            <div class="fg"><label>Návrh tankovania (input_text)</label><span class="fin ph">input_text.kniha_jazd_fillup</span><span class="vhint">Entity ID input_text helpera v HA. Vytvorte ho v Nastavenia → Zariadenia → Helpery → Vytvoriť → Text.</span></div>
+            <div class="fg"><label>Senzor hladiny paliva</label><span class="fin">sensor.auto_fuel_level</span><span class="vhint">Entity ID senzora hladiny paliva (v %) z Home Assistant</span></div>
+            <div class="secth">Palivo</div>
+            <div class="fg"><label>Objem nádrže (litre)</label><span class="fin">50</span></div>
+            <div class="fg"><label>Spotreba z TP (l/100km)</label><span class="fin">5.1</span></div>
+          </div>
+          <div class="vf"><span class="b sec2">Zrušiť</span><span class="b">Uložiť</span></div>
+        </div>
+      </div>
+      <div class="window" style="height:900px">
+        <div class="content dim" style="height:100%"><div class="sp" style="padding-top:0"><div class="sec"><h2>Vozidlá</h2></div></div></div>
+        <div class="vm" style="width:92%">
+          <div class="vh"><h4>Pridať vozidlo</h4><span class="x">&times;</span></div>
+          <div class="vbody">
+            <div class="fg"><label>Názov vozidla</label><span class="fin ph">napr. Škoda Octavia</span></div>
+            <div class="fg"><label>Evidenčné číslo (EČV)</label><span class="fin ph">napr. BA123XY</span></div>
+            <div class="fg"><label>Typ vozidla</label><span class="fin focus">Elektrické (BEV) <span class="dd">v</span></span></div>
+            <div class="fg"><label>Počiatočný stav ODO (km)</label><span class="fin">0</span></div>
+            <div class="fg"><label>VIN</label><span class="fin ph">napr. ABC123456789</span></div>
+            <div class="fg"><label>Vodič</label><span class="fin ph">napr. Janko Hraško</span></div>
+            <div class="secth">Batéria</div>
+            <div class="fg"><label>Kapacita batérie (kWh)</label><span class="fin">0</span></div>
+            <div class="fg"><label>Základná spotreba (kWh/100km)</label><span class="fin">0</span></div>
+            <div class="fg"><label>Počiatočný stav batérie (%)</label><span class="fin">100</span></div>
+          </div>
+          <div class="vf"><span class="b sec2">Zrušiť</span><span class="b">Uložiť</span></div>
+        </div>
+      </div>
+    </div>
+    <ul class="ann">
+      <li>The title is "Pridať vozidlo" for a new vehicle and "Upraviť vozidlo" for an edit. The fields are in this order: name, plate, type, start odometer, VIN, driver, the HA sensors, then "Palivo" and "Batéria".</li>
+      <li>"Typ vozidla" has "Spaľovacie (ICE)", "Elektrické (BEV)" and "Plug-in hybrid (PHEV)". A new vehicle starts as ICE. The type sets the sections: ICE shows "Palivo", BEV shows "Batéria", PHEV shows both.</li>
+      <li>When the vehicle has trips in any year (<code>get_years_with_trips</code>), the type select is disabled, with the hint "Typ vozidla nie je možné zmeniť po vytvorení záznamov". The backend also refuses a type change for a vehicle with trips.</li>
+      <li>The three sensor fields ("ODO senzor", "Návrh tankovania (input_text)", "Senzor hladiny paliva") show only when an HA URL and a saved token exist. The right window has no HA, so it has no sensor fields.</li>
+      <li>A new vehicle starts with 0 in the number fields and 100 in "Počiatočný stav batérie (%)". The gray texts in the empty text fields are placeholders.</li>
+      <li>"Uložiť" sends <code>create_vehicle</code> (new) or <code>update_vehicle</code> (edit). The values of a hidden section go as empty. The dialog has no field check: an empty name also saves.</li>
+      <li>"Zrušiť", the close button or a click on the dark area closes the dialog with no save. Esc also closes it, but only after the focus is in the dialog: the dialog sets no focus when it opens.</li>
+    </ul>
+  </section>
+
+  <!-- 8. Delete vehicle -->
+  <section class="frame">
+    <h2>8. Delete a vehicle</h2>
+    <div class="window" style="height:260px">
+      <div class="content dim" style="height:100%"><div class="sp" style="padding-top:0"><div class="sec"><h2>Vozidlá</h2></div></div></div>
+      <div class="modal m400">
+        <h3 class="mt">Odstrániť vozidlo</h3>
+        <span>Naozaj chcete odstrániť vozidlo "Škoda Enyaq"?</span>
+        <div class="foot"><span class="bs">Zrušiť</span><span class="bs danger">Odstrániť</span></div>
+      </div>
+    </div>
+    <ul class="ann">
+      <li>"Odstrániť" in a vehicle row opens this confirm. The text names the vehicle. It says nothing about the trips of the vehicle.</li>
+      <li>"Odstrániť" sends <code>delete_vehicle</code>. The backend also deletes the saved routes of the vehicle. "Zrušiť" or a click on the dark area closes the confirm. Esc works only after the focus is in the confirm.</li>
+    </ul>
+  </section>
+
+  <!-- 9. Company -->
+  <section class="frame">
+    <h2>9. Nastavenia spoločnosti</h2>
+    <div class="window">
+      <div class="sp">
+        <div class="sec">
+          <h2>Nastavenia spoločnosti</h2>
+          <div class="fg"><label>Názov spoločnosti</label><span class="fin">Moja firma s.r.o.</span></div>
+          <div class="fg"><label>IČO</label><span class="fin">12345678</span></div>
+          <div class="fg"><label>Účel kompenzačnej jazdy</label><span class="fin">služobná cesta</span><span class="hs">Tento účel sa použije pri plánovaní jázd na dodržanie 20% limitu spotreby.</span></div>
+        </div>
+      </div>
+    </div>
+    <ul class="ann">
+      <li>The three fields save together, 800 ms after the last key and on blur (<code>save_settings</code>), with the toast "Nastavenia boli úspešne uložené". An unchanged value does not save.</li>
+      <li>These values are stored in the database, not in <code>local.settings.json</code> (<code>get_settings</code> loads them).</li>
+      <li>"Názov spoločnosti" and "IČO" print in the header of "Export pre tlač" and "Export do Excelu".</li>
+      <li>The fields have no check: the IČO takes any text.</li>
+      <li>No code reads "Účel kompenzačnej jazdy" now (see the open points).</li>
+    </ul>
+  </section>
+
+  <!-- 10. Backups -->
+  <section class="frame">
+    <h2>10. Záloha databázy</h2>
+    <div class="window">
+      <div class="toast ok"><span>✓</span><span>Záloha bola úspešne vytvorená</span></div>
+      <div class="sp">
+        <div class="sec">
+          <h2>Záloha databázy</h2>
+          <span class="b">Zálohovať</span>
+          <div class="ret">
+            <h4>Automatické čistenie</h4>
+            <span class="cbl"><span class="box on"></span>Ponechať iba posledných <span class="sel-s">3 v</span> automatických záloh</span>
+            <div class="cprev"><span>Na vymazanie: 1 záloha (1.6 MB)</span><span class="bs">Vyčistiť teraz</span></div>
+          </div>
+          <div class="blist">
+            <h3>Dostupné zálohy</h3>
+            <div class="bitem"><div class="binfo"><span class="d">06. 11. 2026 09:14:22</span><span class="s">2.4 MB</span></div><div class="row"><span class="bs">Obnoviť</span><span class="bs danger">Odstrániť</span></div></div>
+            <div class="bitem"><div class="binfo"><span class="d">01. 11. 2026 18:02:10</span><span class="s">2.3 MB</span></div><div class="row"><span class="bs">Obnoviť</span><span class="bs danger">Odstrániť</span></div></div>
+            <div class="bitem"><div class="binfo"><span class="d">15. 10. 2026 07:45:03</span><span class="s">2.3 MB</span></div><div class="row"><span class="bs">Obnoviť</span><span class="bs danger">Odstrániť</span></div></div>
+            <div class="bitem"><div class="binfo"><span class="d">20. 03. 2026 19:40:12</span><span class="bbadge">pred 1.6.0</span><span class="s">1.8 MB</span></div><div class="row"><span class="bs">Obnoviť</span><span class="bs danger">Odstrániť</span></div></div>
+            <div class="bitem"><div class="binfo"><span class="d">02. 02. 2026 08:05:31</span><span class="bbadge">pred 1.5.0</span><span class="s">1.7 MB</span></div><div class="row"><span class="bs">Obnoviť</span><span class="bs danger">Odstrániť</span></div></div>
+            <div class="bitem"><div class="binfo"><span class="d">11. 01. 2026 17:22:04</span><span class="bbadge">pred 1.4.1</span><span class="s">1.7 MB</span></div><div class="row"><span class="bs">Obnoviť</span><span class="bs danger">Odstrániť</span></div></div>
+            <div class="bitem"><div class="binfo"><span class="d">05. 12. 2025 10:48:56</span><span class="bbadge">pred 1.4.0</span><span class="s">1.6 MB</span></div><div class="row"><span class="bs">Obnoviť</span><span class="bs danger">Odstrániť</span></div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <ul class="ann">
+      <li>"Zálohovať" copies the database to <code>&lt;DATA_DIR&gt;/backups/</code> (<code>create_backup</code>). It reads "Vytváram zálohu..." and is disabled while it runs. Then the list reloads and the toast "Záloha bola úspešne vytvorená" shows.</li>
+      <li>"Dostupné zálohy" lists the files (<code>list_backups</code>) with the date, time and size. It shows "Načítavam..." while it loads, and "Žiadne zálohy. Vytvorte prvú zálohu." when empty.</li>
+      <li>The blue badge "pred {version}" marks a backup made before an update to that version (type <code>pre-update</code>). This build makes no such backup. Only an older build did.</li>
+      <li>The app also makes a backup at start, before it runs new migrations (type <code>pre-migration</code>). It shows like a manual backup, with no badge. In the example, the rows of 01. 11. and 15. 10. can be such backups.</li>
+      <li>"Automatické čistenie" applies only to the backups with the badge. The checkbox and the count (3, 5 or 10) save at once (<code>set_backup_retention</code>). The count select is disabled while the checkbox is off.</li>
+      <li>With the checkbox on, the line under it shows the backups past the count (<code>get_cleanup_preview</code>): "Na vymazanie: N zálohy (size)", or "Nič na vyčistenie". The newest ones stay.</li>
+      <li>"Vyčistiť teraz" deletes those files at once, with no confirm (<code>cleanup_pre_update_backups</code>). It reads "..." while it runs, then shows "Zálohy boli vyčistené".</li>
+      <li>"Obnoviť" first reads the backup details (<code>get_backup_info</code>) and opens frame 11. "Odstrániť" opens frame 12.</li>
+      <li>In the example, 4 backups have the badge and the count is 3, so the oldest one (05. 12. 2025) is on the delete list.</li>
+    </ul>
+  </section>
+
+  <!-- 11. Restore -->
+  <section class="frame">
+    <h2>11. Restore a backup ("Potvrdiť obnovenie")</h2>
+    <div class="window" style="height:400px">
+      <div class="content dim" style="height:100%"><div class="sp" style="padding-top:0"><div class="sec"><h2>Záloha databázy</h2></div></div></div>
+      <div class="modal m400">
+        <h3 class="mt">Potvrdiť obnovenie</h3>
+        <span><b>Dátum zálohy:</b> 01. 11. 2026 18:02:10</span>
+        <span><b>Veľkosť:</b> 2.3 MB</span>
+        <span><b>Obsahuje:</b> 3 vozidlá, 412 jázd</span>
+        <span class="warnbox">Aktuálne dáta budú prepísané! Ak si chcete zachovať aktuálny stav, vytvorte si najprv zálohu manuálne.</span>
+        <div class="foot"><span class="bs">Zrušiť</span><span class="bs danger">Obnoviť zálohu</span></div>
+      </div>
+    </div>
+    <ul class="ann">
+      <li>"Obsahuje:" counts the vehicles and the trips in the backup file, with the Slovak plural forms.</li>
+      <li>"Obnoviť zálohu" sends <code>restore_backup</code>. The current data is replaced. The app makes no backup of the current state first.</li>
+      <li>The backend refuses a file that is not a logbook database, and a backup from a newer version. The red toast then reads "Nepodarilo sa obnoviť zálohu: ..." with the backend text.</li>
+      <li>On success the toast "Záloha bola úspešne obnovená. Aplikácia sa reštartuje." shows, and the page reloads after 1.5 s.</li>
+      <li>"Zrušiť" or a click on the dark area closes the dialog. Esc works only after the focus is in the dialog.</li>
+    </ul>
+  </section>
+
+  <!-- 12. Delete backup -->
+  <section class="frame">
+    <h2>12. Delete a backup ("Potvrdiť odstránenie")</h2>
+    <div class="window" style="height:330px">
+      <div class="content dim" style="height:100%"><div class="sp" style="padding-top:0"><div class="sec"><h2>Záloha databázy</h2></div></div></div>
+      <div class="modal m400">
+        <h3 class="mt">Potvrdiť odstránenie</h3>
+        <span><b>Dátum zálohy:</b> 15. 10. 2026 07:45:03</span>
+        <span><b>Veľkosť:</b> 2.3 MB</span>
+        <span class="warnbox">Táto záloha bude trvalo odstránená!</span>
+        <div class="foot"><span class="bs">Zrušiť</span><span class="bs danger">Odstrániť</span></div>
+      </div>
+    </div>
+    <ul class="ann">
+      <li>"Odstrániť" sends <code>delete_backup</code>, reloads the list and shows "Záloha bola odstránená".</li>
+      <li>This dialog uses the values of the list. It does not read the file first, so it has no "Obsahuje:" line.</li>
+    </ul>
+  </section>
+
+  <section class="open-points">
+    <h2>Open points (from the code, not fixed)</h2>
+    <ul class="ann">
+      <li>"Pridať vozidlo" drops the three HA sensor fields. The dialog shows them, but <code>createVehicle</code> takes no sensor arguments (<code>src/routes/settings/+page.svelte:633-645</code>, <code>src/lib/api.ts:15-41</code>), and the backend sets them empty (<code>src-tauri/core/src/commands_internal/vehicles.rs:81-83</code>). Only an edit saves them.</li>
+      <li>A new vehicle is saved as active, and the other vehicles stay active (<code>src-tauri/core/src/commands_internal/vehicles.rs:78</code>). After an add, the list can show "Aktívne" on two rows.</li>
+      <li>A clear of the HA or Paperless URL or token does not clear it. The page sends an empty value as <code>null</code>, which the backend reads as "keep" (<code>src/routes/settings/+page.svelte:294-295</code>, <code>:355-356</code>; <code>src-tauri/core/src/commands_internal/integrations.rs:234-242</code>, <code>:334-341</code>). The toast still says saved.</li>
+      <li>After a save of the HA URL alone, the page sets "no token" (<code>haHasToken = !!haApiToken</code>, <code>src/routes/settings/+page.svelte:299</code>). The status line hides, the eye button is disabled, and the "********" placeholder goes away until a reload. The vehicle dialog also loses the three sensor fields (<code>haConfigured</code>, <code>:1516</code>). Paperless reads the value back and has no such problem (<code>:361-362</code>).</li>
+      <li>"Nastaviť ako aktívne" and "Odstrániť" refresh only the vehicle list, not the active vehicle (<code>src/routes/settings/+page.svelte:673-705</code>). The header select shows the old vehicle until a reload (<code>src/routes/+layout.svelte:163</code>).</li>
+      <li>"Automatické čistenie" never runs on its own. Nothing reads the setting except this page (<code>src-tauri/core/src/commands_internal/backup.rs:308</code>). It counts only <code>pre-update</code> backups (<code>backup.rs:151-166</code>), and nothing creates one now: <code>createBackupWithType</code> has no caller (<code>src/lib/api.ts:270</code>).</li>
+      <li>The automatic backups of this build are the <code>pre-migration</code> backups at start (<code>src-tauri/core/src/db.rs:79-82</code>). They get no badge (<code>src/routes/settings/+page.svelte:1455</code>), and the cleanup does not count them, so they stay until a manual delete.</li>
+      <li>"Účel kompenzačnej jazdy" has no effect. Only the settings load and save use <code>buffer_trip_purpose</code>. No suggestion or export code reads it. The hint "Tento účel sa použije pri plánovaní jázd..." is out of date (<code>src/routes/settings/+page.svelte:1373-1386</code>).</li>
+      <li>The page has no read-only handling: no control is disabled. The guarded writes (company, vehicles, HA, Paperless, retention, restore and delete of a backup) fail with an error toast (<code>check_read_only!</code>). "Zálohovať" works on purpose (<code>backup.rs:181-184</code>). The theme, the three preference checkboxes and "Vyčistiť teraz" still write (<code>src-tauri/core/src/commands_internal/settings_cmd.rs:56</code>, <code>:127</code>, <code>:144</code>, <code>:160</code>; <code>backup.rs:281</code>).</li>
+      <li>The preference handlers have no error handling. A failed save shows nothing and the control keeps the new state (<code>src/routes/settings/+page.svelte:441-462</code>). The retention errors show the raw backend text in the toast (<code>:813</code>, <code>:827</code>).</li>
+      <li>After the first save of a Paperless URL and token, "Vlastné polia" shows with no selects until a click on "Obnoviť zoznam polí". The save does not read the fields (<code>src/routes/settings/+page.svelte:343-369</code>, <code>:1173</code>).</li>
+      <li>The PIN prompt shows the backend errors in English ("Incorrect PIN.") in the Slovak UI (<code>src-tauri/core/src/commands_internal/reveal.rs:82-90</code>, <code>src/routes/settings/+page.svelte:88</code>). Its buttons have no page style: no CSS rule for <code>.button-secondary</code> or the bare submit button (<code>:1500-1505</code>).</li>
+      <li>Some colours are fixed values that do not change in dark mode: the status line, the HA ODO badge and the "pred {version}" badge. The page uses undefined variables with light fallbacks (<code>--color-success-bg</code>, <code>--color-error-bg</code>, <code>--accent-light</code>; <code>src/routes/settings/+page.svelte:1668-1671</code>, <code>:1880-1886</code>, <code>:2169-2177</code>). The env badge and the disabled inputs use <code>--bg-secondary</code> and <code>--border-color</code>, which <code>src/lib/theme.css</code> does not define (<code>:2093-2095</code>, <code>:2105</code>).</li>
+      <li>Unused i18n keys of this page (<code>src/lib/i18n/sk/index.ts</code>): <code>settings.saveSettings</code> (:284), <code>settings.revealWindows</code> / <code>revealMac</code> / <code>revealLinux</code> (:292-294), all 17 <code>settings.dbLocation*</code> keys (:323-339), <code>toast.errorMoveDatabase</code> / <code>errorResetDatabase</code> (:434-435), <code>homeAssistant.tokenNotSet</code>, <code>notConfigured</code>, <code>configureFirst</code>, <code>connectionError</code> (:897, :910-911, :916), <code>paperless.status.idle</code> (:976), and all <code>update.*</code> keys except <code>update.currentVersion</code> and <code>update.showChangelog</code> (:930-962).</li>
+    </ul>
+  </section>
+
+</div>
+<script>
+(function () {
+  var root = document.documentElement;
+  try { if (window.matchMedia("(prefers-color-scheme: dark)").matches) root.setAttribute("data-theme", "dark"); } catch (e) {}
+  document.getElementById("themebtn").addEventListener("click", function () {
+    root.setAttribute("data-theme", root.getAttribute("data-theme") === "dark" ? "light" : "dark");
+  });
+})();
+</script>
+<script>
+(function () {
+  /* Outside claude.ai (a local file, GitHub Pages, a raw-HTML proxy) the page nav uses the
+     repo files next to this one; on claude.ai it keeps the artifact links. */
+  var h = location.hostname;
+  if (location.protocol === "file:" || /github\.io$|githack\.com$/.test(h)) {
+    var links = document.querySelectorAll("a[data-file]");
+    for (var i = 0; i < links.length; i++) links[i].href = links[i].getAttribute("data-file");
+  }
+})();
+</script>
+</body>
+</html>

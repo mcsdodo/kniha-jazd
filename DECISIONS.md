@@ -4,6 +4,34 @@ Architecture Decision Records (ADRs) and business logic decisions. **Newest firs
 
 ---
 
+## 2026-11-06: UI Mockups (Task 95)
+
+### ADR-063: A visible UI change goes into the page mockup first
+
+**Context:** The phone pages (task 93), the route alternatives (task 94) and the odometer on the phone trip card (commit `5247a3b`) were drawn in a claude.ai artifact before the code. The user reviewed the frames, and the code followed them. The PC pages had no mockups, and no skill made the mockup a step of a task.
+
+**Options considered:**
+1. HTML only in a private claude.ai artifact, with a registry of links in the repo.
+2. HTML in the repo as the source, published to the artifact for review.
+3. One artifact per task with only the changed frames.
+4. A CI check that fails a commit which changes a screen but not its mockup file.
+
+**Decision:** Option 2, without option 4.
+- Each page has one mockup file in [docs/mockups/](docs/mockups/README.md): one frame per screen state, English notes in STE, invented data. The file is the source. The private claude.ai artifact of the page is its published view, where the owner reviews it and sends comments to Claude. Change the file, then publish it with `publish_files`; never edit the artifact directly.
+- A visible change is drawn first, in place, marked "Návrh (task NN)", and the user approves it before the plan. `01-task.md` links the frames under `## Design`. After the merge, the mark goes away. A dropped feature restores the file from git.
+- The mockup notes own the UI behaviour. The feature docs own the technical part. A note gives a value only if the screen shows it or its code is in a source path of the page; a backend value is named by its BIZ/ADR id or its constant.
+- The `mockup` skill carries the steps. `/task-plan`, `/plan-review`, `/verify` and `/move-to-done` call it or check it. [scripts/mockup-drift.sh](scripts/mockup-drift.sh) lists the commits that changed a screen after the last change to its mockup file, and `/verify` shows that list. The post-commit hook reminds after a commit that changes a `.svelte` page or component but no mockup file.
+
+**Reasoning:**
+- In the repo, a mockup change is in the same diff as its code, git gives the history and the restore, and the notes sit next to the feature docs, so one change can update both. Anybody can open a file from a clone. With the HTML only on claude.ai, the notes and the feature docs drifted apart with nothing to see it, and an old version could not be restored by the tools.
+- The artifact stays, because the owner reviews there and the comments reach the session.
+- One artifact per page keeps one link per screen; a per-task artifact adds a copy step.
+- No CI check: the owner chose the commit reminder and `/verify` only.
+
+**Consequences:** The artifact can lag the file until a session publishes it; the skill publishes after each change. GitHub shows an `.html` file as source, so GitHub Pages serves `docs/` from `main` (plain files, `docs/.nojekyll`), and a reader opens `https://mcsdodo.github.io/kniha-jazd/mockups/<file>`.
+
+---
+
 ## 2026-11-05: Year Deviation Base
 
 ### BIZ-033: The app shows the year deviation from the closed periods (amends BIZ-029)

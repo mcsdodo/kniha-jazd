@@ -1,0 +1,554 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Kniha jázd PC: Jazdy</title>
+<style>
+/* ===== Shared PC mockup CSS (copy this block to every PC mockup) =====
+   The colour variables copy src/lib/theme.css. The frames stack vertically. */
+:root {
+  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, "Open Sans", "Helvetica Neue", sans-serif;
+  --page-bg: #e9edf0; --page-ink: #2c3e50; --page-muted: #6b7a80;
+  --bg-body: #f5f5f5; --bg-surface: #ffffff; --bg-surface-alt: #fafafa; --bg-header: #2c3e50;
+  --text-primary: #2c3e50; --text-secondary: #7f8c8d; --text-muted: #95a5a6;
+  --text-on-header: #ffffff; --text-on-header-muted: rgba(255,255,255,0.7);
+  --border-default: #e0e0e0; --border-input: #d5dbdb; --shadow-default: rgba(0,0,0,0.1);
+  --accent-primary: #3498db; --accent-success: #27ae60; --accent-success-bg: #e8f8e8;
+  --accent-warning: #d39e00; --accent-danger: #c0392b; --accent-danger-bg: #fee;
+  --input-bg: #ffffff; --btn-secondary-bg: #ecf0f1;
+  --toast-success-bg: #d4edda; --toast-success-color: #155724; --toast-success-border: #c3e6cb;
+  --toast-error-bg: #f8d7da; --toast-error-color: #721c24; --toast-error-border: #f5c6cb;
+  --toast-info-bg: #d1ecf1; --toast-info-color: #0c5460; --toast-info-border: #bee5eb;
+  --warning-bg: #fff3cd; --warning-color: #856404; --warning-border: #ffc107;
+  --badge-danger-bg: #e74c3c; --overlay-bg: rgba(0,0,0,0.5);
+  --accent-primary-light-bg: #ebf5fb; --editing-row-bg: #e3f2fd; --accent-warning-dark: #e67e22;
+  --consumption-warn-bg: #fff3e0;
+  --badge-ice-bg: #e3f2fd; --badge-ice-color: #1565c0; --badge-bev-bg: #e8f5e9; --badge-bev-color: #2e7d32;
+  --badge-phev-bg: #fff3e0; --badge-phev-color: #e65100;
+  --prop: #e67e22; --prop-bg: #fdf0e1;
+  color-scheme: light;
+}
+:root[data-theme="dark"] {
+  --page-bg: #0d0f10; --page-ink: #e0e0e0; --page-muted: #9aa4a8;
+  --bg-body: #121212; --bg-surface: #1e1e1e; --bg-surface-alt: #252525; --bg-header: #1e1e1e;
+  --text-primary: #e0e0e0; --text-secondary: #a0a0a0; --text-muted: #707070;
+  --text-on-header: #e0e0e0; --text-on-header-muted: rgba(255,255,255,0.6);
+  --border-default: #333333; --border-input: #404040; --shadow-default: rgba(0,0,0,0.3);
+  --accent-primary: #5dade2; --accent-success: #58d68d; --accent-success-bg: #1e3d1e;
+  --accent-warning: #f4d03f; --accent-danger: #ec7063; --accent-danger-bg: #3d2020;
+  --input-bg: #2a2a2a; --btn-secondary-bg: #333333;
+  --toast-success-bg: #1e3a1e; --toast-success-color: #58d68d; --toast-success-border: #2a4a2a;
+  --toast-error-bg: #3d2020; --toast-error-color: #ec7063; --toast-error-border: #5a2a2a;
+  --toast-info-bg: #1a3a4a; --toast-info-color: #5dade2; --toast-info-border: #254a5a;
+  --warning-bg: #3d3520; --warning-color: #f4d03f; --warning-border: #8a7020;
+  --accent-primary-light-bg: #1a2a3a; --editing-row-bg: #1a2a3a; --consumption-warn-bg: #3a2a1a;
+  --badge-ice-bg: #1a2a3a; --badge-ice-color: #64b5f6; --badge-bev-bg: #1e3a1e; --badge-bev-color: #81c784;
+  --badge-phev-bg: #3a2a1a; --badge-phev-color: #ffb74d;
+  --prop: #f0a04a; --prop-bg: #3a2a18;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--page-bg); color: var(--page-ink); font-family: var(--font-sans); font-size: 15px; line-height: 1.45; }
+code { font-size: 0.9em; }
+a { color: var(--accent-primary); }
+header.page { padding: 24px 24px 8px; max-width: 1240px; margin: 0 auto; }
+header.page h1 { margin: 0 0 4px; font-size: 1.5rem; text-wrap: balance; }
+header.page p { margin: 4px 0; color: var(--page-muted); max-width: 80ch; }
+.pagenav { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 0.9rem; margin-top: 8px; align-items: center; }
+.pagenav .here { font-weight: 700; color: var(--page-ink); }
+.themebtn { margin-left: auto; font: inherit; font-size: 0.85rem; border: 1px solid var(--page-muted); background: transparent; color: var(--page-ink); border-radius: 6px; padding: 3px 10px; cursor: pointer; }
+.frames { display: flex; flex-direction: column; gap: 36px; padding: 16px 24px 48px; max-width: 1240px; margin: 0 auto; }
+.frame { display: flex; flex-direction: column; gap: 10px; }
+.frame > h2 { margin: 0; font-size: 0.85rem; letter-spacing: 0.06em; text-transform: uppercase; color: var(--page-muted); }
+.window { width: 100%; max-width: 1180px; border: 1px solid var(--border-default); border-radius: 8px; overflow: hidden; background: var(--bg-body); color: var(--text-primary); box-shadow: 0 6px 18px rgba(0,0,0,0.10); position: relative; font-size: 14px; }
+.window .content { padding: 16px 20px; display: flex; flex-direction: column; gap: 14px; }
+.ann { font-size: 0.9rem; color: var(--page-muted); margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 4px; max-width: 95ch; }
+.ann li::marker { color: var(--accent-primary); }
+.ann b, .ann code { color: var(--page-ink); }
+.ann li.prop::marker { color: var(--prop); }
+.ann li.prop b { color: var(--prop); }
+/* Proposal mark: a frame or an element changed by a task, not built yet */
+.open { border: 2px dashed var(--prop); border-radius: 8px; padding: 6px 8px; }
+.open > .tag, .tag.prop { display: inline-block; font-size: 0.72rem; font-weight: 700; color: var(--prop); background: var(--prop-bg); text-transform: uppercase; letter-spacing: 0.05em; padding: 1px 6px; border-radius: 4px; }
+/* App header */
+.apphdr { background: var(--bg-header); color: var(--text-on-header); padding: 10px 20px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; box-shadow: 0 2px 4px var(--shadow-default); }
+.apphdr .left { display: flex; align-items: center; gap: 8px 24px; flex-wrap: wrap; }
+.apphdr .title { font-size: 1.3rem; font-weight: 600; padding: 4px 12px; border-radius: 4px; }
+.apphdr nav { display: flex; gap: 4px; flex-wrap: wrap; }
+.apphdr nav span { color: var(--text-on-header-muted); padding: 6px 12px; border-radius: 4px; font-weight: 500; white-space: nowrap; }
+.apphdr .on { background: rgba(255,255,255,0.2); color: var(--text-on-header) !important; }
+.apphdr .right { display: flex; gap: 14px; align-items: center; font-size: 0.9rem; }
+.apphdr .sel { background: var(--input-bg); color: var(--text-primary); border-radius: 4px; padding: 4px 8px; margin-left: 6px; border: 1px solid var(--border-input); }
+.badge-count { display: inline-block; min-width: 18px; padding: 0 5px; margin-left: 6px; border-radius: 9px; background: var(--badge-danger-bg); color: #fff; font-size: 0.72rem; font-weight: 700; text-align: center; line-height: 18px; }
+.banner-ro { display: flex; gap: 10px; align-items: center; padding: 10px 16px; background: var(--warning-bg); border-bottom: 1px solid var(--warning-border); color: var(--warning-color); font-weight: 500; }
+/* Generic app parts */
+.card { background: var(--bg-surface); border-radius: 8px; padding: 16px; box-shadow: 0 1px 3px var(--shadow-default); display: flex; flex-direction: column; gap: 12px; }
+.card h3 { margin: 0; font-size: 1.15rem; }
+.row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.spread { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; }
+.btn { display: inline-block; padding: 7px 14px; border-radius: 4px; font-weight: 500; font-size: 0.9rem; background: var(--btn-secondary-bg); color: var(--text-primary); border: 1px solid transparent; white-space: nowrap; }
+.btn.primary { background: var(--accent-primary); color: #fff; }
+.btn.success { background: var(--accent-success); color: #fff; }
+.btn.danger { background: var(--accent-danger); color: #fff; }
+.btn.ghost { background: transparent; border-color: var(--border-input); }
+.btn.dis { opacity: 0.45; }
+.btn.sm { padding: 4px 10px; font-size: 0.82rem; }
+.input { display: inline-flex; align-items: center; justify-content: space-between; gap: 6px; border: 1px solid var(--border-input); border-radius: 4px; padding: 5px 8px; background: var(--input-bg); min-width: 60px; font-variant-numeric: tabular-nums; }
+.input.focus { border-color: var(--accent-primary); box-shadow: 0 0 0 2px rgba(52,152,219,0.15); }
+.input.bad { border-color: var(--accent-danger); }
+.hint { color: var(--text-secondary); font-size: 0.85rem; }
+.muted { color: var(--text-secondary); }
+.warn-text { color: var(--accent-warning-dark); font-weight: 600; }
+.err-text { color: var(--accent-danger); }
+.ok-text { color: var(--accent-success); }
+.pill { display: inline-block; padding: 1px 8px; border-radius: 999px; font-size: 0.78rem; font-weight: 600; white-space: nowrap; }
+.pill.ok { background: var(--accent-success-bg); color: var(--accent-success); }
+.pill.bad { background: var(--accent-danger-bg); color: var(--accent-danger); }
+.pill.warn { background: var(--warning-bg); color: var(--warning-color); }
+.pill.info { background: var(--accent-primary-light-bg); color: var(--accent-primary); }
+.chk { display: inline-flex; gap: 6px; align-items: center; }
+.box { display: inline-block; width: 14px; height: 14px; border: 1px solid var(--border-input); border-radius: 3px; background: var(--input-bg); vertical-align: middle; position: relative; }
+.box.on { background: var(--accent-primary); border-color: var(--accent-primary); }
+.box.on::after { content: ""; position: absolute; left: 4px; top: 1px; width: 4px; height: 8px; border: solid #fff; border-width: 0 2px 2px 0; transform: rotate(45deg); }
+.seg { display: inline-flex; border: 1px solid var(--border-input); border-radius: 4px; overflow: hidden; font-size: 0.82rem; }
+.seg span { padding: 4px 10px; }
+.seg span.on { background: var(--accent-primary); color: #fff; }
+.toast { position: absolute; top: 12px; right: 12px; z-index: 5; display: flex; gap: 10px; align-items: center; padding: 10px 14px; border-radius: 6px; border: 1px solid; font-size: 0.9rem; box-shadow: 0 4px 12px var(--shadow-default); }
+.toast.ok { background: var(--toast-success-bg); color: var(--toast-success-color); border-color: var(--toast-success-border); }
+.toast.err { background: var(--toast-error-bg); color: var(--toast-error-color); border-color: var(--toast-error-border); }
+.toast.info { background: var(--toast-info-bg); color: var(--toast-info-color); border-color: var(--toast-info-border); }
+.toast .act { font-weight: 700; text-decoration: underline; }
+.dim { position: relative; }
+.dim::after { content: ""; position: absolute; inset: 0; background: var(--overlay-bg); z-index: 2; }
+.modal { position: absolute; left: 50%; top: 40px; transform: translateX(-50%); z-index: 3; background: var(--bg-surface); color: var(--text-primary); border-radius: 8px; box-shadow: 0 10px 30px rgba(0,0,0,0.3); padding: 18px 20px; display: flex; flex-direction: column; gap: 12px; width: 520px; max-width: 92%; }
+.modal h4 { margin: 0; font-size: 1.15rem; display: flex; justify-content: space-between; }
+.modal .foot { display: flex; justify-content: flex-end; gap: 8px; margin-top: 4px; }
+.mapbox { height: 220px; border-radius: 6px; border: 1px solid var(--border-default); position: relative; overflow: hidden; background: linear-gradient(135deg, color-mix(in srgb, var(--accent-success) 10%, var(--bg-surface)), color-mix(in srgb, var(--accent-primary) 10%, var(--bg-surface))); }
+.mapbox svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+.tbl { width: 100%; border-collapse: collapse; font-size: 0.85rem; font-variant-numeric: tabular-nums; }
+.tbl th, .tbl td { padding: 5px 6px; text-align: left; border-bottom: 1px solid var(--border-default); white-space: nowrap; }
+.tbl th { background: var(--bg-surface-alt); font-weight: 600; color: var(--text-secondary); }
+.tbl td.n, .tbl th.n { text-align: right; }
+.open-points { border: 1px solid var(--border-default); border-radius: 8px; padding: 12px 16px; background: var(--bg-surface); color: var(--text-primary); }
+.open-points h2 { margin: 0 0 6px; font-size: 1rem; }
+/* ===== End of the shared CSS ===== */
+
+/* Page-specific: trip grid */
+.info-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
+.info-item { background: var(--bg-surface-alt); border-radius: 6px; padding: 8px 10px; display: flex; flex-direction: column; gap: 2px; }
+.info-item .label { font-size: 0.78rem; color: var(--text-secondary); }
+.info-item .value { font-weight: 600; font-variant-numeric: tabular-nums; }
+.info-item.warning { background: var(--warning-bg); }
+.info-item.warning .value { color: var(--accent-warning-dark); }
+.comp { background: var(--warning-bg); border-left: 4px solid var(--warning-border); border-radius: 6px; padding: 10px 14px; color: var(--warning-color); display: flex; flex-direction: column; gap: 2px; }
+.legend { display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: 0.8rem; color: var(--text-secondary); padding: 6px 2px; }
+.grid { width: 100%; border-collapse: collapse; font-size: 0.78rem; font-variant-numeric: tabular-nums; background: var(--bg-surface); }
+.grid th { background: var(--bg-surface-alt); color: var(--text-secondary); font-weight: 600; padding: 6px 4px; text-align: left; border-bottom: 2px solid var(--border-default); white-space: nowrap; }
+.grid td { padding: 5px 4px; border-bottom: 1px solid var(--border-default); white-space: nowrap; }
+.grid td.n, .grid th.n { text-align: right; }
+.grid tr.high td { background: var(--consumption-warn-bg); }
+.grid tr.first td, .grid tr.month td { color: var(--text-secondary); font-style: italic; background: var(--bg-surface-alt); }
+.grid tr.editing td { background: var(--editing-row-bg); }
+.grid .w { color: var(--accent-warning-dark); font-weight: 700; }
+.grid .est { color: var(--text-secondary); }
+.icons { display: inline-flex; gap: 3px; color: var(--text-secondary); }
+.icons span { display: inline-block; width: 20px; text-align: center; border-radius: 3px; }
+.icons .filled { color: var(--accent-primary); }
+.cell-in { display: inline-block; border: 1px solid var(--border-input); background: var(--input-bg); border-radius: 3px; padding: 2px 4px; min-width: 34px; }
+.cell-in.focus { border-color: var(--accent-primary); }
+.ac { position: absolute; z-index: 3; background: var(--bg-surface); border: 1px solid var(--border-input); border-radius: 4px; box-shadow: 0 4px 10px var(--shadow-default); font-size: 0.8rem; min-width: 170px; }
+.ac div { padding: 4px 8px; }
+.ac div.sel { background: var(--accent-primary-light-bg); }
+.dropdown { position: absolute; z-index: 3; right: 20px; top: 52px; background: var(--bg-surface); border: 1px solid var(--border-input); border-radius: 6px; box-shadow: 0 6px 16px var(--shadow-default); padding: 8px 12px; display: flex; flex-direction: column; gap: 6px; font-size: 0.85rem; min-width: 190px; }
+.paper { background: #fff; color: #000; font-family: "Times New Roman", serif; padding: 18px 24px; font-size: 12px; }
+.paper h5 { text-align: center; font-size: 16px; margin: 0 0 8px; letter-spacing: 0.1em; }
+.paper .hdr { display: grid; grid-template-columns: repeat(4, auto); gap: 2px 18px; margin-bottom: 10px; font-size: 11px; }
+.paper table { width: 100%; border-collapse: collapse; font-size: 10.5px; }
+.paper th, .paper td { border: 1px solid #000; padding: 2px 4px; }
+.paper td.n { text-align: right; }
+.paper .foot { margin-top: 8px; display: grid; grid-template-columns: repeat(3, auto); gap: 2px 18px; font-size: 11px; }
+</style>
+</head>
+<body>
+<header class="page">
+  <h1>Kniha jázd on the PC: Jazdy (current state)</h1>
+  <p>The trip logbook at <code>/</code> and the app shell (header, nav, pickers), as they work on <code>main</code>. The example data is invented. The UI text is Slovak, as in the app. The notes under each frame say what the screen does.</p>
+  <p>The source is <code>docs/mockups/jazdy.html</code> in the repo. Its git history shows when the page changed.</p>
+  <p>An orange dashed box with the tag "Návrh (task NN)" marks a proposal that is not built yet. This page has no open proposal.</p>
+  <div class="pagenav" id="pagenav">
+    <span class="here">Jazdy</span>
+    <a href="https://claude.ai/artifact/Nvtcv8rofbFtVG4BNbAoMr" data-file="doklady.html">Doklady</a><a href="https://claude.ai/artifact/RgyA56LvfFjRHpgMcYG3ku" data-file="fuelio.html">Fuelio</a><a href="https://claude.ai/artifact/F3fXHbFEaERHHcKC4tr215" data-file="mapa.html">Mapa</a><a href="https://claude.ai/artifact/T2jiZ3ZLGs9s1F89UZP9eE" data-file="miesta.html">Miesta</a><a href="https://claude.ai/artifact/F5fCz7wgrunXAyQ5rRw1AJ" data-file="nastavenia.html">Nastavenia</a><a href="https://claude.ai/artifact/TyYTKii3cU4ryvN98giUGW" data-file="mobil.html">Mobil</a>
+    <button class="themebtn" type="button" id="themebtn">Dark / light</button>
+  </div>
+</header>
+
+<div class="frames">
+
+  <!-- 1. Header -->
+  <section class="frame">
+    <h2>1. App header and nav (all PC pages)</h2>
+    <div class="window">
+      <div class="apphdr">
+        <div class="left">
+          <span class="title on">Kniha Jázd</span>
+          <nav><span>Doklady<span class="badge-count">3</span></span><span>Miesta</span><span>Fuelio</span><span>Nastavenia</span></nav>
+        </div>
+        <div class="right">
+          <span>Vozidlo:<span class="sel">Škoda Octavia (BA123XY) v</span></span>
+          <span>Rok:<span class="sel">2026 v</span></span>
+        </div>
+      </div>
+      <div class="banner-ro"><span>⚠️</span><span>Databáza bola aktualizovaná novšou verziou aplikácie. Režim len na čítanie.</span></div>
+    </div>
+    <ul class="ann">
+      <li>The title "Kniha Jázd" opens the logbook. The active page has a lighter background in the nav.</li>
+      <li>The red count next to "Doklady" is the number of Paperless fuel invoices with no trip (tooltip "Nepriradené doklady"). Other-cost invoices do not count. It refreshes every 5 min and after an assign. It hides at 0 and on an error (<code>count_unlinked_paperless_fuel_invoices</code>).</li>
+      <li>"Fuelio" shows only when the three <code>DROPBOX_*</code> env vars are set (<code>is_fuelio_available</code>).</li>
+      <li>Below 640 px the nav also shows "Mobilná verzia", a link to <code>/m</code>.</li>
+      <li>"Vozidlo:" lists "name (plate)". With no vehicle it shows "-- Žiadne vozidlá --". A change sets the active vehicle and resets the year to the current year.</li>
+      <li>"Rok:" shows only with an active vehicle. It lists the current year and each year with trips, newest first. A year with no data jumps to the newest year with data.</li>
+      <li>The yellow banner shows only in read-only mode: the database has migrations that this build does not know. The banner has no buttons.</li>
+      <li>The header has no theme control. The theme comes from the settings page.</li>
+    </ul>
+  </section>
+
+  <!-- 2. No vehicle -->
+  <section class="frame">
+    <h2>2. No vehicle</h2>
+    <div class="window">
+      <div class="apphdr"><div class="left"><span class="title on">Kniha Jázd</span><nav><span>Doklady</span><span>Miesta</span><span>Nastavenia</span></nav></div><div class="right"><span>Vozidlo:<span class="sel">-- Žiadne vozidlá -- v</span></span></div></div>
+      <div class="content" style="align-items:center;text-align:center;padding:40px">
+        <h3 style="margin:0">Žiadne vozidlo</h3>
+        <span class="muted">Prosím, vyberte vozidlo z hlavného menu alebo ho vytvorte v nastaveniach.</span>
+        <span class="btn primary">Prejsť do nastavení</span>
+      </div>
+    </div>
+    <ul class="ann">
+      <li>The page shows this when no vehicle is active. The button opens <code>/settings</code>, where "+ Pridať vozidlo" creates one.</li>
+      <li>At start, if no vehicle is saved as active, the app picks the first vehicle.</li>
+    </ul>
+  </section>
+
+  <!-- 3. Vehicle card -->
+  <section class="frame">
+    <h2>3. Vehicle card, year stats, compensation banner</h2>
+    <div class="window">
+      <div class="content">
+        <div class="card">
+          <div class="spread"><h3>Aktívne vozidlo</h3><div class="row"><span class="btn primary">Export pre tlač</span><span class="btn success">Export do Excelu</span></div></div>
+          <div class="info-grid">
+            <div class="info-item"><span class="label">Názov</span><span class="value">Škoda Octavia</span></div>
+            <div class="info-item"><span class="label">ŠPZ</span><span class="value">BA123XY</span></div>
+            <div class="info-item"><span class="label">Objem nádrže</span><span class="value">50 L</span></div>
+            <div class="info-item"><span class="label">Spotreba (TP)</span><span class="value">5.1 L/100km</span></div>
+            <div class="info-item"><span class="label">VIN</span><span class="value">TMBJJ7NE0K0123456</span></div>
+            <div class="info-item"><span class="label">Vodič</span><span class="value">Ján Novák</span></div>
+          </div>
+          <div class="info-grid">
+            <div class="info-item"><span class="label">Celkovo najazdené</span><span class="value">19 043 km</span></div>
+            <div class="info-item"><span class="label">PHM</span><span class="value">1110.2 L / 1928.84 €</span></div>
+            <div class="info-item"><span class="label">Zostatok</span><span class="value">52.5 L <span class="muted" style="font-weight:400">(treba dotankovať 12.0 L)</span></span></div>
+            <div class="info-item"><span class="label">Spotreba</span><span class="value">5.88 L/100km</span></div>
+            <div class="info-item warning"><span class="label">Odchýlka</span><span class="value">121.4%</span></div>
+            <div class="info-item warning"><span class="label">Reálne ODO</span><span class="value">73 902 km <span style="font-weight:400">(88 km chýba v knihe jázd)</span></span></div>
+          </div>
+        </div>
+        <div class="comp">
+          <b>⚠️ Prekročený zákonný limit spotreby</b>
+          <span>Aktuálna odchýlka: 21.4% (limit: 20%)</span>
+          <span>Potrebných dodatočných km: 112 km</span>
+        </div>
+      </div>
+    </div>
+    <ul class="ann">
+      <li>"Export pre tlač" opens the printed logbook in a new tab (<code>export_html</code>, frame 11). "Export do Excelu" downloads an <code>.xlsx</code> file (<code>export_xlsx</code>). Both use the hidden columns and the sort order of the grid. Both are disabled with 0 trips, and read "Exportujem..." while they run.</li>
+      <li>Row 1 is the vehicle. "VIN" and "Vodič" show only when they are set.</li>
+      <li>Row 2 comes from <code>calculate_trip_stats</code>. "Odchýlka" is the year from the closed fill-up periods (BIZ-033), and it turns orange over the limit. It hides when no period is closed.</li>
+      <li>With a Home Assistant fuel sensor, "Zostatok" adds "(treba dotankovať N L)" or "(v nádrži je o N L viac)", or "(Chyba pripojenia k HA)".</li>
+      <li>With a Home Assistant odometer sensor, "Reálne ODO" shows the real odometer and the difference: "(N km treba najazdiť)" or "(N km chýba v knihe jázd)". It turns orange when the real odometer is 50 km or more ahead of the book. It refreshes every 5 min.</li>
+      <li>The yellow banner shows only when the year is over the limit. It shows the margin and the extra km that bring it back under 20 %. It has no buttons: the suggestions are the 💡 fill-up in the legend and the magic fill in the editor.</li>
+    </ul>
+  </section>
+
+  <!-- 4. Trip grid ICE -->
+  <section class="frame">
+    <h2>4. Trip grid, combustion vehicle (ICE)</h2>
+    <div class="window">
+      <div class="content">
+        <div class="card">
+          <div class="spread">
+            <h3>Jazdy (144)</h3>
+            <div class="row"><span class="btn primary">Nový záznam</span><span class="seg"><span class="on">+1 deň</span><span>Dnes</span></span><span class="btn ghost sm">👁 <span class="badge-count" style="background:var(--accent-primary)">2</span></span></div>
+          </div>
+          <div class="legend">
+            <span>💡 Návrh tankovania: 38.20 L → 5.51 l/100km</span>
+            <span><b>*</b> čiastočné tankovanie (2)</span>
+            <span><span class="w">⚠</span> Chýba doklad o tankovaní (1)</span>
+            <span><span style="display:inline-block;width:12px;height:10px;background:var(--consumption-warn-bg);border:1px solid var(--accent-warning-dark)"></span> vysoká spotreba (3)</span>
+            <span><span class="w">⚠</span> dátum/čas dokladu mimo jazdy (1)</span>
+            <span><span class="w">⚠</span> tachometer nesedí so vzdialenosťou (1)</span>
+            <span><span class="w">⚠</span> rovnaký dátum a čas (2)</span>
+          </div>
+          <div style="overflow-x:auto">
+          <table class="grid">
+            <thead><tr><th># ▼</th><th>Začiatok</th><th>Koniec</th><th>Odkiaľ</th><th>Kam</th><th class="n">Km</th><th class="n">ODO</th><th>Účel</th><th class="n">PHM (L)</th><th class="n">Cena €</th><th class="n">Spotr. (L)</th><th class="n">l/100km</th><th class="n">Zostatok</th><th class="n">Iné €</th><th>Iné pozn.</th><th>Akcie</th></tr></thead>
+            <tbody>
+              <tr><td>144</td><td>30.10. 18:42</td><td>30.10. 19:16</td><td>Klient Poprad</td><td>Kancelária</td><td class="n">28</td><td class="n">73 814</td><td>návrat z rokovania</td><td></td><td></td><td class="n">1.43</td><td class="n est">~ 5.10</td><td class="n">57.7</td><td></td><td></td><td><span class="icons"><span>⊕</span><span>⧉</span><span>⇄</span><span class="filled">📍</span><span>🗑</span></span></td></tr>
+              <tr class="high"><td>143</td><td>30.10. 08:05</td><td>30.10. 10:31</td><td>Kancelária</td><td>Klient Poprad</td><td class="n">135</td><td class="n">73 786</td><td>rokovanie</td><td></td><td></td><td class="n">8.10</td><td class="n">6.00</td><td class="n">59.1</td><td class="n">12.00 <span class="w">⚠</span></td><td>parkovné</td><td><span class="icons"><span>⊕</span><span>⧉</span><span>⇄</span><span>📍</span><span>🗑</span></span></td></tr>
+              <tr class="high"><td>142</td><td>29.10. 09:34 <span class="w">⚠</span></td><td>29.10. 12:05 <span class="w">⚠</span></td><td>Sklad</td><td>Čerpacia stanica D1</td><td class="n">218</td><td class="n">73 651</td><td>služobná cesta</td><td class="n">54.51</td><td class="n">89.40</td><td class="n">13.08</td><td class="n">6.00</td><td class="n">67.2</td><td></td><td></td><td><span class="icons"><span>⊕</span><span>⧉</span><span>⇄</span><span class="filled">📍</span><span>🗑</span></span></td></tr>
+              <tr><td>141</td><td>28.10. 16:20</td><td>28.10. 16:41</td><td>Pobočka Bratislava</td><td>Sklad</td><td class="n">15</td><td class="n">73 433 <span class="w">⚠</span></td><td>presun tovaru</td><td class="n">20.00 <b>*</b></td><td class="n">33.20 <span class="w">⚠</span></td><td class="n">0.90</td><td class="n">6.00</td><td class="n">25.8</td><td></td><td></td><td><span class="icons"><span>⊕</span><span>⧉</span><span>⇄</span><span>📍</span><span>🗑</span></span></td></tr>
+              <tr><td>140</td><td>28.10. 07:40</td><td>28.10. 07:56</td><td>Hotel</td><td>Pobočka Bratislava</td><td class="n">4</td><td class="n">73 384</td><td>rokovanie</td><td></td><td></td><td class="n">0.24</td><td class="n">6.00</td><td class="n">6.7</td><td></td><td></td><td><span class="icons"><span>⊕</span><span>⧉</span><span>⇄</span><span>📍</span><span>🗑</span></span></td></tr>
+              <tr class="month"><td></td><td>30.09. -</td><td></td><td></td><td></td><td></td><td class="n">72 560</td><td></td><td></td><td></td><td></td><td></td><td class="n">31.4</td><td></td><td></td><td></td></tr>
+              <tr><td colspan="16" class="muted">...</td></tr>
+              <tr class="first"><td></td><td>01.01.</td><td></td><td colspan="3">Prvý záznam</td><td class="n">54 771</td><td></td><td></td><td></td><td></td><td></td><td class="n">40.0</td><td></td><td></td><td></td></tr>
+            </tbody>
+          </table>
+          </div>
+        </div>
+      </div>
+    </div>
+    <ul class="ann">
+      <li>"Jazdy (N)" counts the trips of the year. The data comes from <code>get_trip_grid_data</code>: the backend computes each rate, warning and fuel remaining (ADR-008).</li>
+      <li>"Nový záznam" opens an editor row at the top (frame 8). It is disabled while a row is open ("Najprv dokončite otvorený záznam").</li>
+      <li>"+1 deň" / "Dnes" sets the date that a new row gets: the day after the last trip, or today ("Predvyplnený dátum pre nový záznam").</li>
+      <li>The eye button opens the column menu (frame 5). Its badge counts the hidden columns.</li>
+      <li>A click on "#" flips the sort: ▼ is newest first, ▲ is oldest first.</li>
+      <li>The legend shows only the items that occur, each with its count. 💡 is the fill-up that brings the open period to a safe rate.</li>
+      <li>Warning icons: ⚠ in "PHM (L)" or "Iné €" is a missing invoice (also without Paperless set). ⚠ on "Začiatok" / "Koniec" is an invoice time outside the trip, or the same date and time as another trip. ⚠ on "ODO" is an odometer that does not match the km. <b>*</b> is a partial fill-up.</li>
+      <li>An orange row is a fill-up period over 120 % of the TP rate. "~" in "l/100km" is a rate estimated from TP (the period is still open, "Odhad podľa TP").</li>
+      <li>"30.09. -" is a month-end row: only the ODO and the fuel remaining. "Prvý záznam" holds the odometer and the fuel at the start of the year (carried over from last year).</li>
+      <li>Row icons, from left: "Vložiť záznam nad", "Kopírovať záznam", "Kopírovať opačnú trasu", the map pin ("Pridať mapu trasy", or filled: "Zobraziť mapu trasy", opens <code>/mapa?trip=</code> in a new tab), "Odstrániť záznam".</li>
+      <li>A double-click on a row opens the editor (frame 7).</li>
+      <li>With no trips the grid says "Žiadne záznamy. Kliknite na "Nový záznam" pre pridanie jazdy."</li>
+    </ul>
+  </section>
+
+  <!-- 5. Column menu -->
+  <section class="frame">
+    <h2>5. Column menu open</h2>
+    <div class="window" style="height:300px">
+      <div class="content">
+        <div class="card">
+          <div class="spread"><h3>Jazdy (144)</h3><div class="row"><span class="btn primary">Nový záznam</span><span class="seg"><span class="on">+1 deň</span><span>Dnes</span></span><span class="btn ghost sm" style="border-color:var(--accent-primary)">👁 <span class="badge-count" style="background:var(--accent-primary)">2</span></span></div></div>
+        </div>
+      </div>
+      <div class="dropdown">
+        <b>Stĺpce</b>
+        <span class="chk"><span class="box on"></span>Číslo jazdy</span>
+        <span class="chk"><span class="box on"></span>Koniec</span>
+        <span class="chk"><span class="box"></span>Vodič</span>
+        <span class="chk"><span class="box"></span>Km pred</span>
+        <span class="chk"><span class="box on"></span>Spotrebované (L)</span>
+        <span class="chk"><span class="box on"></span>Zostatok (L)</span>
+        <span class="chk"><span class="box on"></span>Iné (€)</span>
+        <span class="chk"><span class="box on"></span>Iná poznámka</span>
+      </div>
+    </div>
+    <ul class="ann">
+      <li>8 columns can hide. The others always show: Začiatok, Odkiaľ, Kam, Km, ODO, Účel, the fuel or energy columns, Akcie.</li>
+      <li>The choice is saved on the server (<code>set_hidden_columns</code>), so it is the same in each browser. The exports also leave out the hidden columns.</li>
+    </ul>
+  </section>
+
+  <!-- 6. BEV and PHEV -->
+  <section class="frame">
+    <h2>6. Electric (BEV) and plug-in hybrid (PHEV) columns</h2>
+    <div class="window">
+      <div class="content">
+        <div class="card">
+          <b>BEV</b>
+          <table class="grid">
+            <thead><tr><th>#</th><th>Začiatok</th><th>Odkiaľ</th><th>Kam</th><th class="n">Km</th><th class="n">ODO</th><th>Účel</th><th class="n">Energia (kWh)</th><th class="n">Cena nab. €</th><th class="n">kWh/100km</th><th class="n">Batéria</th><th class="n">Iné €</th><th>Akcie</th></tr></thead>
+            <tbody>
+              <tr><td>12</td><td>05.11. 14:59</td><td>Domov</td><td>Kancelária</td><td class="n">24</td><td class="n">18 402</td><td>služobná cesta</td><td class="n">42.0 <b>*</b></td><td class="n">14.70</td><td class="n">17.80</td><td class="n">58.3 kWh (78%)</td><td></td><td><span class="icons"><span>⊕</span><span>⧉</span><span>⇄</span><span>📍</span><span>🗑</span></span></td></tr>
+              <tr><td>11</td><td>04.11. 17:07</td><td>Kancelária</td><td>Domov</td><td class="n">24</td><td class="n">18 378</td><td>služobná cesta</td><td></td><td></td><td class="n est">~ 18.00</td><td class="n">20.6 kWh (27%) <span title="Korekcia stavu batérie (%)">⚡</span></td><td></td><td><span class="icons"><span>⊕</span><span>⧉</span><span>⇄</span><span>📍</span><span>🗑</span></span></td></tr>
+            </tbody>
+          </table>
+          <b>PHEV</b>
+          <table class="grid">
+            <thead><tr><th>#</th><th>Začiatok</th><th>Odkiaľ</th><th>Kam</th><th class="n">Km</th><th class="n">ODO</th><th class="n">PHM (L)</th><th class="n">Cena €</th><th class="n">l/100km</th><th class="n">Zostatok</th><th class="n">Energia (kWh)</th><th class="n">Cena nab. €</th><th class="n">kWh/100km</th><th class="n">Batéria</th><th>Akcie</th></tr></thead>
+            <tbody>
+              <tr><td>7</td><td>03.11. 09:10</td><td>Domov</td><td>Sklad</td><td class="n">61</td><td class="n">30 115</td><td></td><td></td><td class="n est">~ 1.80</td><td class="n">31.2</td><td class="n">9.5</td><td class="n">3.30</td><td class="n est">~ 16.00</td><td class="n">4.1 kWh (31%)</td><td><span class="icons"><span>⊕</span><span>⧉</span><span>⇄</span><span>📍</span><span>🗑</span></span></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+    <ul class="ann">
+      <li>The vehicle type sets the columns. ICE: the fuel columns. BEV: "Energia (kWh)", "Cena nab. €", "kWh/100km", "Batéria". PHEV: both sets.</li>
+      <li>"Batéria" shows the kWh and the %. ⚡ marks a manual battery correction ("Korekcia stavu batérie (%)"), set in the editor of an existing row.</li>
+      <li>"~" in "kWh/100km" is an estimate from the baseline consumption ("Odhad podľa základnej spotreby").</li>
+    </ul>
+  </section>
+
+  <!-- 7. Row editor -->
+  <section class="frame">
+    <h2>7. Row editor open (double-click on a row)</h2>
+    <div class="window">
+      <div class="content">
+        <div class="card" style="position:relative">
+          <table class="grid">
+            <thead><tr><th>#</th><th>Začiatok</th><th>Koniec</th><th>Odkiaľ</th><th>Kam</th><th class="n">Km</th><th class="n">ODO</th><th>Účel</th><th class="n">PHM (L)</th><th class="n">Cena €</th><th class="n">l/100km</th><th class="n">Zostatok</th><th>Akcie</th></tr></thead>
+            <tbody>
+              <tr><td>144</td><td>30.10. 18:42</td><td>30.10. 19:16</td><td>Klient Poprad</td><td>Kancelária</td><td class="n">28</td><td class="n">73 814</td><td>návrat z rokovania</td><td></td><td></td><td class="n est">~ 5.10</td><td class="n">57.7</td><td><span class="icons" style="opacity:0.35"><span>⊕</span><span>⧉</span><span>⇄</span><span>📍</span><span>🗑</span></span></td></tr>
+              <tr class="editing"><td>143</td><td><span class="cell-in">30.10 08:05</span></td><td><span class="cell-in">30.10 10:31</span></td><td><span class="cell-in">Kancelária</span></td><td><span class="cell-in focus">Klient Pop|</span></td><td class="n"><span class="cell-in">135</span></td><td class="n"><span class="cell-in">73 786</span></td><td><span class="cell-in">rokovanie</span></td><td class="n"><span class="cell-in">40.00</span> <span class="chk"><span class="box on"></span>Plná</span></td><td class="n"><span class="cell-in">66.00</span></td><td class="n">~ 5.46 <span class="ok-text">(+7%)</span></td><td class="n">~ 50.0</td><td><span class="icons"><span title="Automatické doplnenie" style="color:var(--accent-primary)">✦</span><span class="ok-text">✓</span><span class="err-text">✕</span></span></td></tr>
+              <tr class="editing"><td colspan="13" class="err-text">Miesto "Klient Pop" neexistuje. <a href="#">Pridajte ho na karte Miesta.</a></td></tr>
+            </tbody>
+          </table>
+          <div class="ac" style="left:300px;top:92px"><div class="sel">Klient Poprad</div><div>Klient Trnava</div></div>
+        </div>
+      </div>
+    </div>
+    <ul class="ann">
+      <li>One row is open at a time. The icons of the other rows are disabled while a row is open.</li>
+      <li>"Začiatok" and "Koniec" take "DD.MM HH:MM". An invalid value gets a red border. With "Zobraziť výber dátumu a času" set, a calendar button "Vybrať dátum a čas" shows too.</li>
+      <li>"Odkiaľ", "Kam" and "Účel" show a filtered list of the known values. A place must exist in the place book (<code>find_place</code>). An unknown name shows the red line "Miesto ... neexistuje." with a link to the Miesta page.</li>
+      <li>A known route fills the km. A typed km moves the ODO. On an existing row a typed ODO sets the km (ODO minus the odometer before). An ODO below the row before shows the error toast "Tachometer je nižší ako predchádzajúci záznam, vzdialenosť by bola záporná".</li>
+      <li>On a new row the ODO comes from the chain of the trips before it, not from a typed value (intended: <code>create_trip_cascade</code> takes no odometer).</li>
+      <li>"Plná" shows once liters are typed. BEV / PHEV rows have "Plné nabitie" next to the kWh.</li>
+      <li>The values with "~" are a live preview from the backend (<code>preview_trip_calculation</code>). "(+7%)" is the margin over TP: green under 20 %, red over 20 %.</li>
+      <li>✦ "Automatické doplnenie" fills "PHM (L)" with the suggested liters for the open period, inside the legal limit and the tank (BIZ-003, BIZ-028), and sets "Plná". ✓ (or Enter) saves. ✕ (or Esc) cancels.</li>
+    </ul>
+  </section>
+
+  <!-- 8. New record -->
+  <section class="frame">
+    <h2>8. New record, times from the last trip of the route</h2>
+    <div class="window">
+      <div class="toast info"><span>ℹ Časy doplnené z poslednej trasy</span><span class="act">Vrátiť</span></div>
+      <div class="content">
+        <div class="card">
+          <div class="spread"><h3>Jazdy (144)</h3><div class="row"><span class="btn primary dis">Nový záznam</span><span class="seg"><span class="on">+1 deň</span><span>Dnes</span></span></div></div>
+          <table class="grid">
+            <thead><tr><th>#</th><th>Začiatok</th><th>Koniec</th><th>Odkiaľ</th><th>Kam</th><th class="n">Km</th><th class="n">ODO</th><th>Účel</th><th class="n">PHM (L)</th><th class="n">l/100km</th><th>Akcie</th></tr></thead>
+            <tbody>
+              <tr class="editing"><td></td><td><span class="cell-in">31.10 07:50</span></td><td><span class="cell-in">31.10 08:21</span></td><td><span class="cell-in">Kancelária</span></td><td><span class="cell-in">Sklad</span></td><td class="n"><span class="cell-in">23</span></td><td class="n">~ 73 837</td><td><span class="cell-in">služobná cesta</span></td><td class="n"><span class="cell-in"></span></td><td class="n est">~ 5.10</td><td><span class="icons"><span style="color:var(--accent-primary)">✦</span><span class="ok-text">✓</span><span class="err-text">✕</span></span></td></tr>
+              <tr><td>144</td><td>30.10. 18:42</td><td>30.10. 19:16</td><td>Klient Poprad</td><td>Kancelária</td><td class="n">28</td><td class="n">73 814</td><td>návrat z rokovania</td><td></td><td class="n est">~ 5.10</td><td><span class="icons" style="opacity:0.35"><span>⊕</span><span>⧉</span><span>⇄</span><span>📍</span><span>🗑</span></span></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+    <ul class="ann">
+      <li>"Nový záznam" opens the row at the top. "Vložiť záznam nad" opens it above the target row, with the date of that row.</li>
+      <li>"Kopírovať záznam" and "Kopírovať opačnú trasu" open a new row at the top with the values of the trip (<code>get_copied_trip_defaults</code>). The reversed copy swaps "Odkiaľ" and "Kam", and the purpose gets the prefix "Kopírované: ".</li>
+      <li>With "Automaticky vyplniť časy podľa poslednej trasy" set, a known route fills the start and end times from the last trip of that route (<code>get_inferred_trip_time_for_route</code>). The toast shows "Vrátiť", which puts the old times back.</li>
+      <li>Save asks the backend for a dry run (<code>create_trip_cascade</code>). If later trips move, the cascade dialog opens (frame 9). If not, the trip saves at once.</li>
+    </ul>
+  </section>
+
+  <!-- 9. Cascade -->
+  <section class="frame">
+    <h2>9. Later trips move ("Posun tachometra")</h2>
+    <div class="window" style="height:520px">
+      <div class="content dim" style="height:100%">
+        <div class="card"><h3>Jazdy (144)</h3></div>
+      </div>
+      <div class="modal" style="width:680px">
+        <h4>Posun tachometra</h4>
+        <b>Táto zmena posunie 17 nasledujúcich jázd o +5 km.</b>
+        <span class="muted">+5 km -- vaša zmena vzdialenosti (130 -> 135 km)</span>
+        <div class="warn-text" style="font-weight:500">Posunie sa aj posledná jazda roka, takže prvá jazda nasledujúceho roka bude hlásiť nesúlad tachometra.</div>
+        <table class="tbl">
+          <tr><th>Jazda</th><th>Dátum</th><th>Trasa</th><th class="n">Tachometer teraz</th><th class="n">Tachometer po zmene</th></tr>
+          <tr><td>144</td><td>30.10.</td><td>Klient Poprad -> Kancelária</td><td class="n">73 809</td><td class="n">73 814</td></tr>
+          <tr><td>145</td><td>02.11.</td><td>Kancelária -> Sklad</td><td class="n">73 832</td><td class="n">73 837</td></tr>
+          <tr><td colspan="5" class="muted">...</td></tr>
+        </table>
+        <div class="foot"><span class="btn">Zrušiť</span><span class="btn primary">Uložiť a posunúť</span></div>
+      </div>
+    </div>
+    <ul class="ann">
+      <li>The dialog opens only when a save, an insert or a delete moves the odometer of later trips. The backend computes the plan in a dry run.</li>
+      <li>The first line depends on the action: "Táto zmena posunie ..." (edit), "Nová jazda posunie ..." (insert), "Zmazanie posunie ..." (delete).</li>
+      <li>The breakdown says where the shift comes from: "vaša zmena vzdialenosti", "vzdialenosť novej jazdy", "vzdialenosť zmazanej jazdy", or an odometer repair of the trip itself.</li>
+      <li>The orange line shows only when the last trip of the year moves.</li>
+      <li>The confirm button reads "Uložiť a posunúť", or "Zmazať a posunúť" for a delete. "Zrušiť" saves nothing.</li>
+      <li>The same dialog opens from Fuelio and from the phone pages. Mapa uses its "Zápis vzdialenosti trasy" variant.</li>
+    </ul>
+  </section>
+
+  <!-- 10. Delete -->
+  <section class="frame">
+    <h2>10. Delete with no shift, and the error toast</h2>
+    <div class="window" style="height:260px">
+      <div class="toast err"><span>✗ Nepodarilo sa odstrániť záznam</span></div>
+      <div class="content dim" style="height:100%"><div class="card"><h3>Jazdy (144)</h3></div></div>
+      <div class="modal" style="width:420px">
+        <h4>Odstrániť záznam</h4>
+        <span>Naozaj chcete odstrániť tento záznam?</span>
+        <div class="foot"><span class="btn">Zrušiť</span><span class="btn danger">Odstrániť</span></div>
+      </div>
+    </div>
+    <ul class="ann">
+      <li>The trash icon first asks for a dry run (<code>delete_trip_cascade</code>). If later trips move, the cascade dialog opens (frame 9). If not, this confirm opens.</li>
+      <li>A failed write shows a red toast, top right. A click closes it. (The toast and the dialog do not show at the same time; the frame shows both to save space.)</li>
+    </ul>
+  </section>
+
+  <!-- 11. Print export -->
+  <section class="frame">
+    <h2>11. "Export pre tlač" output (new tab)</h2>
+    <div class="window">
+      <div class="paper">
+        <h5>KNIHA JÁZD</h5>
+        <div class="hdr">
+          <span><b>Firma:</b> Moja firma s.r.o.</span><span><b>IČO:</b> 12345678</span><span><b>Vozidlo:</b> Škoda Octavia</span><span><b>ŠPZ:</b> BA123XY</span>
+          <span><b>Nádrž:</b> 50 L</span><span><b>TP spotreba:</b> 5.1 l/100km</span><span><b>Rok:</b> 2026</span><span><b>Vodič:</b> Ján Novák</span>
+        </div>
+        <table>
+          <tr><th>#</th><th>Začiatok</th><th>Koniec</th><th>Odkiaľ</th><th>Kam</th><th>Účel</th><th>Km</th><th>ODO</th><th>PHM L</th><th>€ PHM</th><th>Spotr.</th><th>Zost.</th><th>€ Iné</th><th>Poznámka</th></tr>
+          <tr><td class="n">140</td><td>28.10. 07:40</td><td>28.10. 07:56</td><td>Hotel</td><td>Pobočka Bratislava</td><td>rokovanie</td><td class="n">4</td><td class="n">73 384</td><td></td><td></td><td class="n">6.00</td><td class="n">6.7</td><td></td><td></td></tr>
+          <tr><td class="n">142</td><td>29.10. 09:34</td><td>29.10. 12:05</td><td>Sklad</td><td>Čerpacia stanica D1</td><td>služobná cesta</td><td class="n">218</td><td class="n">73 651</td><td class="n">54.51</td><td class="n">89.40</td><td class="n">6.00</td><td class="n">67.2</td><td></td><td></td></tr>
+          <tr><td class="n">143</td><td>30.10. 08:05</td><td>30.10. 10:31</td><td>Kancelária</td><td>Klient Poprad</td><td>rokovanie</td><td class="n">135</td><td class="n">73 786</td><td></td><td></td><td class="n">6.00</td><td class="n">59.1</td><td class="n">12.00</td><td>parkovné</td></tr>
+        </table>
+        <div class="foot">
+          <span><b>Celkom km:</b> 19 043</span><span><b>Celkom PHM:</b> 1110.2 L / 1928.84 €</span><span><b>Iné náklady:</b> 64.00 €</span>
+          <span><b>Priemerná spotreba:</b> 5.88 l/100km</span><span><b>Odchýlka od TP:</b> 121.4 %</span><span><b>TP norma:</b> 5.1 l/100km</span>
+        </div>
+        <p style="font-size:10px;color:#666">Pre export do PDF použite Ctrl+P → Uložiť ako PDF</p>
+      </div>
+    </div>
+    <ul class="ann">
+      <li>The backend renders this HTML page (<code>export_html</code>, template in <code>src-tauri/core/src/export.rs</code>). It is the legal document of the year.</li>
+      <li>The header has the company and IČO from "Nastavenia spoločnosti", and the vehicle. A BEV shows "Batéria:" and "Základ. spotreba:" in place of the tank and TP.</li>
+      <li>With "Tlačiť knihu jázd vždy v jednotnom tvare" set, the export is always oldest first and has all columns. It ignores the sort and the hidden columns of the grid.</li>
+      <li>The footer has the year totals and "Odchýlka od TP". The stored route maps print as attachment pages after the table, each with the heading "Príloha č. N — záznam č. R" and the OpenStreetMap credit.</li>
+      <li>"Export do Excelu" writes the same header, rows and totals to sheet "Kniha jázd", and the route maps to sheet "Prílohy". It has exact values, shown rounded, and no formulas. Not drawn.</li>
+    </ul>
+  </section>
+
+  <section class="open-points">
+    <h2>Open points (from the code, not fixed)</h2>
+    <ul class="ann">
+      <li>The vehicle card always shows "Objem nádrže" and "Spotreba (TP)", also for a BEV, where both are empty (<code>src/routes/+page.svelte:274-281</code>).</li>
+      <li>✦ "Automatické doplnenie" shows in the editor for each vehicle type. For a BEV it fills a fuel field that the grid does not show (<code>src/lib/components/TripRow.svelte:952</code>).</li>
+      <li>The page has no read-only handling: the grid, the editor and "Nový záznam" stay active. A dry run skips the read-only guard (<code>src-tauri/core/src/commands_internal/trips.rs:934</code>), so the cascade dialog can open, and the write then fails with a generic toast.</li>
+      <li>Unused i18n keys of the old compensation suggestion: <code>compensation.suggestionTitle</code>, <code>compensation.addTrip</code>, <code>compensation.searchingSuggestion</code>.</li>
+    </ul>
+  </section>
+
+</div>
+<script>
+(function () {
+  var root = document.documentElement;
+  try { if (window.matchMedia("(prefers-color-scheme: dark)").matches) root.setAttribute("data-theme", "dark"); } catch (e) {}
+  document.getElementById("themebtn").addEventListener("click", function () {
+    root.setAttribute("data-theme", root.getAttribute("data-theme") === "dark" ? "light" : "dark");
+  });
+})();
+</script>
+<script>
+(function () {
+  /* Outside claude.ai (a local file, GitHub Pages, a raw-HTML proxy) the page nav uses the
+     repo files next to this one; on claude.ai it keeps the artifact links. */
+  var h = location.hostname;
+  if (location.protocol === "file:" || /github\.io$|githack\.com$/.test(h)) {
+    var links = document.querySelectorAll("a[data-file]");
+    for (var i = 0; i < links.length; i++) links[i].href = links[i].getAttribute("data-file");
+  }
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,545 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Kniha jázd PC: Miesta</title>
+<style>
+/* ===== Shared PC mockup CSS (copy this block to every PC mockup) =====
+   The colour variables copy src/lib/theme.css. The frames stack vertically. */
+:root {
+  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, "Open Sans", "Helvetica Neue", sans-serif;
+  --page-bg: #e9edf0; --page-ink: #2c3e50; --page-muted: #6b7a80;
+  --bg-body: #f5f5f5; --bg-surface: #ffffff; --bg-surface-alt: #fafafa; --bg-header: #2c3e50;
+  --text-primary: #2c3e50; --text-secondary: #7f8c8d; --text-muted: #95a5a6;
+  --text-on-header: #ffffff; --text-on-header-muted: rgba(255,255,255,0.7);
+  --border-default: #e0e0e0; --border-input: #d5dbdb; --shadow-default: rgba(0,0,0,0.1);
+  --accent-primary: #3498db; --accent-success: #27ae60; --accent-success-bg: #e8f8e8;
+  --accent-warning: #d39e00; --accent-danger: #c0392b; --accent-danger-bg: #fee;
+  --input-bg: #ffffff; --btn-secondary-bg: #ecf0f1;
+  --toast-success-bg: #d4edda; --toast-success-color: #155724; --toast-success-border: #c3e6cb;
+  --toast-error-bg: #f8d7da; --toast-error-color: #721c24; --toast-error-border: #f5c6cb;
+  --toast-info-bg: #d1ecf1; --toast-info-color: #0c5460; --toast-info-border: #bee5eb;
+  --warning-bg: #fff3cd; --warning-color: #856404; --warning-border: #ffc107;
+  --badge-danger-bg: #e74c3c; --overlay-bg: rgba(0,0,0,0.5);
+  --accent-primary-light-bg: #ebf5fb; --editing-row-bg: #e3f2fd; --accent-warning-dark: #e67e22;
+  --consumption-warn-bg: #fff3e0;
+  --badge-ice-bg: #e3f2fd; --badge-ice-color: #1565c0; --badge-bev-bg: #e8f5e9; --badge-bev-color: #2e7d32;
+  --badge-phev-bg: #fff3e0; --badge-phev-color: #e65100;
+  --prop: #e67e22; --prop-bg: #fdf0e1;
+  color-scheme: light;
+}
+:root[data-theme="dark"] {
+  --page-bg: #0d0f10; --page-ink: #e0e0e0; --page-muted: #9aa4a8;
+  --bg-body: #121212; --bg-surface: #1e1e1e; --bg-surface-alt: #252525; --bg-header: #1e1e1e;
+  --text-primary: #e0e0e0; --text-secondary: #a0a0a0; --text-muted: #707070;
+  --text-on-header: #e0e0e0; --text-on-header-muted: rgba(255,255,255,0.6);
+  --border-default: #333333; --border-input: #404040; --shadow-default: rgba(0,0,0,0.3);
+  --accent-primary: #5dade2; --accent-success: #58d68d; --accent-success-bg: #1e3d1e;
+  --accent-warning: #f4d03f; --accent-danger: #ec7063; --accent-danger-bg: #3d2020;
+  --input-bg: #2a2a2a; --btn-secondary-bg: #333333;
+  --toast-success-bg: #1e3a1e; --toast-success-color: #58d68d; --toast-success-border: #2a4a2a;
+  --toast-error-bg: #3d2020; --toast-error-color: #ec7063; --toast-error-border: #5a2a2a;
+  --toast-info-bg: #1a3a4a; --toast-info-color: #5dade2; --toast-info-border: #254a5a;
+  --warning-bg: #3d3520; --warning-color: #f4d03f; --warning-border: #8a7020;
+  --accent-primary-light-bg: #1a2a3a; --editing-row-bg: #1a2a3a; --consumption-warn-bg: #3a2a1a;
+  --badge-ice-bg: #1a2a3a; --badge-ice-color: #64b5f6; --badge-bev-bg: #1e3a1e; --badge-bev-color: #81c784;
+  --badge-phev-bg: #3a2a1a; --badge-phev-color: #ffb74d;
+  --prop: #f0a04a; --prop-bg: #3a2a18;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--page-bg); color: var(--page-ink); font-family: var(--font-sans); font-size: 15px; line-height: 1.45; }
+code { font-size: 0.9em; }
+a { color: var(--accent-primary); }
+header.page { padding: 24px 24px 8px; max-width: 1240px; margin: 0 auto; }
+header.page h1 { margin: 0 0 4px; font-size: 1.5rem; text-wrap: balance; }
+header.page p { margin: 4px 0; color: var(--page-muted); max-width: 80ch; }
+.pagenav { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 0.9rem; margin-top: 8px; align-items: center; }
+.pagenav .here { font-weight: 700; color: var(--page-ink); }
+.themebtn { margin-left: auto; font: inherit; font-size: 0.85rem; border: 1px solid var(--page-muted); background: transparent; color: var(--page-ink); border-radius: 6px; padding: 3px 10px; cursor: pointer; }
+.frames { display: flex; flex-direction: column; gap: 36px; padding: 16px 24px 48px; max-width: 1240px; margin: 0 auto; }
+.frame { display: flex; flex-direction: column; gap: 10px; }
+.frame > h2 { margin: 0; font-size: 0.85rem; letter-spacing: 0.06em; text-transform: uppercase; color: var(--page-muted); }
+.window { width: 100%; max-width: 1180px; border: 1px solid var(--border-default); border-radius: 8px; overflow: hidden; background: var(--bg-body); color: var(--text-primary); box-shadow: 0 6px 18px rgba(0,0,0,0.10); position: relative; font-size: 14px; }
+.window .content { padding: 16px 20px; display: flex; flex-direction: column; gap: 14px; }
+.ann { font-size: 0.9rem; color: var(--page-muted); margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 4px; max-width: 95ch; }
+.ann li::marker { color: var(--accent-primary); }
+.ann b, .ann code { color: var(--page-ink); }
+.ann li.prop::marker { color: var(--prop); }
+.ann li.prop b { color: var(--prop); }
+/* Proposal mark: a frame or an element changed by a task, not built yet */
+.open { border: 2px dashed var(--prop); border-radius: 8px; padding: 6px 8px; }
+.open > .tag, .tag.prop { display: inline-block; font-size: 0.72rem; font-weight: 700; color: var(--prop); background: var(--prop-bg); text-transform: uppercase; letter-spacing: 0.05em; padding: 1px 6px; border-radius: 4px; }
+/* App header */
+.apphdr { background: var(--bg-header); color: var(--text-on-header); padding: 10px 20px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; box-shadow: 0 2px 4px var(--shadow-default); }
+.apphdr .left { display: flex; align-items: center; gap: 8px 24px; flex-wrap: wrap; }
+.apphdr .title { font-size: 1.3rem; font-weight: 600; padding: 4px 12px; border-radius: 4px; }
+.apphdr nav { display: flex; gap: 4px; flex-wrap: wrap; }
+.apphdr nav span { color: var(--text-on-header-muted); padding: 6px 12px; border-radius: 4px; font-weight: 500; white-space: nowrap; }
+.apphdr .on { background: rgba(255,255,255,0.2); color: var(--text-on-header) !important; }
+.apphdr .right { display: flex; gap: 14px; align-items: center; font-size: 0.9rem; }
+.apphdr .sel { background: var(--input-bg); color: var(--text-primary); border-radius: 4px; padding: 4px 8px; margin-left: 6px; border: 1px solid var(--border-input); }
+.badge-count { display: inline-block; min-width: 18px; padding: 0 5px; margin-left: 6px; border-radius: 9px; background: var(--badge-danger-bg); color: #fff; font-size: 0.72rem; font-weight: 700; text-align: center; line-height: 18px; }
+.banner-ro { display: flex; gap: 10px; align-items: center; padding: 10px 16px; background: var(--warning-bg); border-bottom: 1px solid var(--warning-border); color: var(--warning-color); font-weight: 500; }
+/* Generic app parts */
+.card { background: var(--bg-surface); border-radius: 8px; padding: 16px; box-shadow: 0 1px 3px var(--shadow-default); display: flex; flex-direction: column; gap: 12px; }
+.card h3 { margin: 0; font-size: 1.15rem; }
+.row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.spread { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; }
+.btn { display: inline-block; padding: 7px 14px; border-radius: 4px; font-weight: 500; font-size: 0.9rem; background: var(--btn-secondary-bg); color: var(--text-primary); border: 1px solid transparent; white-space: nowrap; }
+.btn.primary { background: var(--accent-primary); color: #fff; }
+.btn.success { background: var(--accent-success); color: #fff; }
+.btn.danger { background: var(--accent-danger); color: #fff; }
+.btn.ghost { background: transparent; border-color: var(--border-input); }
+.btn.dis { opacity: 0.45; }
+.btn.sm { padding: 4px 10px; font-size: 0.82rem; }
+.input { display: inline-flex; align-items: center; justify-content: space-between; gap: 6px; border: 1px solid var(--border-input); border-radius: 4px; padding: 5px 8px; background: var(--input-bg); min-width: 60px; font-variant-numeric: tabular-nums; }
+.input.focus { border-color: var(--accent-primary); box-shadow: 0 0 0 2px rgba(52,152,219,0.15); }
+.input.bad { border-color: var(--accent-danger); }
+.hint { color: var(--text-secondary); font-size: 0.85rem; }
+.muted { color: var(--text-secondary); }
+.warn-text { color: var(--accent-warning-dark); font-weight: 600; }
+.err-text { color: var(--accent-danger); }
+.ok-text { color: var(--accent-success); }
+.pill { display: inline-block; padding: 1px 8px; border-radius: 999px; font-size: 0.78rem; font-weight: 600; white-space: nowrap; }
+.pill.ok { background: var(--accent-success-bg); color: var(--accent-success); }
+.pill.bad { background: var(--accent-danger-bg); color: var(--accent-danger); }
+.pill.warn { background: var(--warning-bg); color: var(--warning-color); }
+.pill.info { background: var(--accent-primary-light-bg); color: var(--accent-primary); }
+.chk { display: inline-flex; gap: 6px; align-items: center; }
+.box { display: inline-block; width: 14px; height: 14px; border: 1px solid var(--border-input); border-radius: 3px; background: var(--input-bg); vertical-align: middle; position: relative; }
+.box.on { background: var(--accent-primary); border-color: var(--accent-primary); }
+.box.on::after { content: ""; position: absolute; left: 4px; top: 1px; width: 4px; height: 8px; border: solid #fff; border-width: 0 2px 2px 0; transform: rotate(45deg); }
+.seg { display: inline-flex; border: 1px solid var(--border-input); border-radius: 4px; overflow: hidden; font-size: 0.82rem; }
+.seg span { padding: 4px 10px; }
+.seg span.on { background: var(--accent-primary); color: #fff; }
+.toast { position: absolute; top: 12px; right: 12px; z-index: 5; display: flex; gap: 10px; align-items: center; padding: 10px 14px; border-radius: 6px; border: 1px solid; font-size: 0.9rem; box-shadow: 0 4px 12px var(--shadow-default); }
+.toast.ok { background: var(--toast-success-bg); color: var(--toast-success-color); border-color: var(--toast-success-border); }
+.toast.err { background: var(--toast-error-bg); color: var(--toast-error-color); border-color: var(--toast-error-border); }
+.toast.info { background: var(--toast-info-bg); color: var(--toast-info-color); border-color: var(--toast-info-border); }
+.toast .act { font-weight: 700; text-decoration: underline; }
+.dim { position: relative; }
+.dim::after { content: ""; position: absolute; inset: 0; background: var(--overlay-bg); z-index: 2; }
+.modal { position: absolute; left: 50%; top: 40px; transform: translateX(-50%); z-index: 3; background: var(--bg-surface); color: var(--text-primary); border-radius: 8px; box-shadow: 0 10px 30px rgba(0,0,0,0.3); padding: 18px 20px; display: flex; flex-direction: column; gap: 12px; width: 520px; max-width: 92%; }
+.modal h4 { margin: 0; font-size: 1.15rem; display: flex; justify-content: space-between; }
+.modal .foot { display: flex; justify-content: flex-end; gap: 8px; margin-top: 4px; }
+.mapbox { height: 220px; border-radius: 6px; border: 1px solid var(--border-default); position: relative; overflow: hidden; background: linear-gradient(135deg, color-mix(in srgb, var(--accent-success) 10%, var(--bg-surface)), color-mix(in srgb, var(--accent-primary) 10%, var(--bg-surface))); }
+.mapbox svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+.tbl { width: 100%; border-collapse: collapse; font-size: 0.85rem; font-variant-numeric: tabular-nums; }
+.tbl th, .tbl td { padding: 5px 6px; text-align: left; border-bottom: 1px solid var(--border-default); white-space: nowrap; }
+.tbl th { background: var(--bg-surface-alt); font-weight: 600; color: var(--text-secondary); }
+.tbl td.n, .tbl th.n { text-align: right; }
+.open-points { border: 1px solid var(--border-default); border-radius: 8px; padding: 12px 16px; background: var(--bg-surface); color: var(--text-primary); }
+.open-points h2 { margin: 0 0 6px; font-size: 1rem; }
+/* ===== End of the shared CSS ===== */
+
+/* Page-specific: the place book. Copies src/routes/miesta/+page.svelte and PlaceModal.svelte. */
+:root { --warning-highlight: #d39e00; --btn-primary-light-bg: #d4edda; --btn-primary-light-color: #155724; }
+:root[data-theme="dark"] { --warning-highlight: #f4d03f; --btn-primary-light-bg: #1e3a1e; --btn-primary-light-color: #58d68d; }
+.places-page { width: 100%; max-width: 800px; margin: 0 auto; }
+.places-section { background: var(--bg-surface); padding: 1.5rem; border-radius: 8px; box-shadow: 0 1px 3px var(--shadow-default); display: flex; flex-direction: column; gap: 1rem; }
+.places-heading { display: flex; justify-content: space-between; align-items: baseline; gap: 1rem; margin: 0; font-size: 1.25rem; }
+.places-counter { font-size: 0.875rem; font-weight: 500; color: var(--text-secondary); }
+.bar { display: flex; align-items: center; gap: 0.5rem; }
+.tin { display: block; padding: 0.5rem 0.75rem; border: 1px solid var(--border-input); border-radius: 4px; font-size: 0.875rem; background: var(--input-bg); color: var(--text-primary); }
+.tin.ph { color: var(--text-muted); }
+.tin.focus { border-color: var(--accent-primary); box-shadow: 0 0 0 3px rgba(52,152,219,0.15); }
+.bar .tin { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; }
+.plist { display: flex; flex-direction: column; gap: 0.5rem; }
+.prow { display: flex; justify-content: space-between; align-items: center; gap: 1rem; padding: 0.625rem 1rem; border: 1px solid var(--border-default); border-radius: 4px; background: var(--bg-surface-alt); }
+.pinfo { display: flex; flex-direction: column; gap: 0.125rem; min-width: 0; flex: 1; }
+.pinfo strong { font-size: 0.9375rem; font-weight: 500; }
+.det { font-size: 0.8125rem; color: var(--text-secondary); }
+.unpl { color: var(--warning-highlight); }
+.pact { display: flex; align-items: center; gap: 0.75rem; flex-shrink: 0; }
+.coords { font-size: 0.8125rem; font-variant-numeric: tabular-nums; color: var(--text-secondary); white-space: nowrap; min-width: 92px; text-align: right; }
+.coords.miss { color: var(--text-muted); }
+.htg { display: inline-flex; padding: 0.25rem; color: var(--text-secondary); opacity: 0.5; }
+.htg.home { opacity: 1; color: var(--accent-primary); }
+.placeholder { margin: 0; color: var(--text-muted); }
+.btn.soft-danger { background: var(--accent-danger-bg); color: var(--accent-danger); }
+.tip { position: absolute; z-index: 4; background: #333; color: #fff; font-size: 0.75rem; padding: 3px 7px; border-radius: 3px; white-space: nowrap; }
+/* PlaceModal */
+.pm { width: 560px; padding: 0; gap: 0; }
+.pm .pm-h { display: flex; justify-content: space-between; align-items: center; padding: 1rem 1.25rem; border-bottom: 1px solid var(--border-default); }
+.pm .pm-h h2 { margin: 0; font-size: 1.25rem; }
+.pm .pm-h .pname { display: block; font-size: 0.875rem; font-weight: 500; color: var(--text-secondary); }
+.pm .x { font-size: 2rem; line-height: 1; color: var(--text-secondary); }
+.pm .pm-b { padding: 1rem 1.25rem; display: flex; flex-direction: column; gap: 0.75rem; }
+.pm .pm-f { display: flex; justify-content: flex-end; gap: 0.5rem; padding: 0.75rem 1.25rem; border-top: 1px solid var(--border-default); }
+.cands { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.25rem; }
+.cand { padding: 0.5rem 0.75rem; border: 1px solid var(--border-default); border-radius: 4px; background: var(--bg-surface-alt); font-size: 0.875rem; }
+.cand.sel { border-color: var(--accent-primary); background: var(--btn-primary-light-bg); color: var(--btn-primary-light-color); }
+.status { margin: 0; font-size: 0.875rem; color: var(--text-secondary); }
+.status.error { color: var(--accent-danger); }
+.pinrow { display: flex; justify-content: space-between; align-items: baseline; gap: 1rem; font-size: 0.85rem; }
+.pinrow .c { font-variant-numeric: tabular-nums; white-space: nowrap; }
+.zoom { position: absolute; left: 8px; top: 8px; display: flex; flex-direction: column; border: 2px solid rgba(0,0,0,0.2); border-radius: 4px; background: #fff; color: #000; font-weight: 700; z-index: 1; }
+.zoom span { width: 26px; height: 26px; text-align: center; line-height: 26px; }
+.zoom span + span { border-top: 1px solid #ccc; }
+.attr { position: absolute; right: 0; bottom: 0; background: rgba(255,255,255,0.8); color: #333; font-size: 0.68rem; padding: 0 5px; z-index: 1; }
+.mini { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; }
+.mini .panel { background: var(--bg-surface); border-radius: 8px; padding: 12px 14px; display: flex; flex-direction: column; gap: 10px; box-shadow: 0 1px 3px var(--shadow-default); }
+.mini .cap { font-size: 0.75rem; font-weight: 700; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.04em; }
+.toast-stack { display: flex; flex-direction: column; gap: 8px; align-items: flex-start; }
+.toast-stack .toast { position: static; }
+.cm { width: 400px; padding: 1.5rem; }
+.cm h2 { margin: 0 0 0.25rem; font-size: 1.25rem; }
+.cm p { margin: 0; }
+.place-error { color: var(--accent-danger); padding: 0.25rem 0.5rem; font-size: 0.85rem; }
+</style>
+</head>
+<body>
+<header class="page">
+  <h1>Kniha jázd on the PC: Miesta (current state)</h1>
+  <p>The place book at <code>/miesta</code>, with the map dialog that sets a position, as it works on <code>main</code>. The example data is invented. The UI text is Slovak, as in the app. The notes under each frame say what the screen does.</p>
+  <p>The source is <code>docs/mockups/miesta.html</code> in the repo. Its git history shows when the page changed.</p>
+  <p>An orange dashed box with the tag "Návrh (task NN)" marks a proposal that is not built yet. This page has no open proposal.</p>
+  <div class="pagenav" id="pagenav">
+    <a href="https://claude.ai/artifact/PCbcTRe6EybiezMCqH8rm2" data-file="jazdy.html">Jazdy</a><a href="https://claude.ai/artifact/Nvtcv8rofbFtVG4BNbAoMr" data-file="doklady.html">Doklady</a><a href="https://claude.ai/artifact/RgyA56LvfFjRHpgMcYG3ku" data-file="fuelio.html">Fuelio</a><a href="https://claude.ai/artifact/F3fXHbFEaERHHcKC4tr215" data-file="mapa.html">Mapa</a>
+    <span class="here">Miesta</span>
+    <a href="https://claude.ai/artifact/F5fCz7wgrunXAyQ5rRw1AJ" data-file="nastavenia.html">Nastavenia</a><a href="https://claude.ai/artifact/TyYTKii3cU4ryvN98giUGW" data-file="mobil.html">Mobil</a>
+    <button class="themebtn" type="button" id="themebtn">Dark / light</button>
+  </div>
+</header>
+
+<div class="frames">
+
+  <!-- 1. List -->
+  <section class="frame">
+    <h2>1. The place list</h2>
+    <div class="window">
+      <div class="apphdr">
+        <div class="left">
+          <span class="title">Kniha Jázd</span>
+          <nav><span>Doklady<span class="badge-count">3</span></span><span class="on">Miesta</span><span>Fuelio</span><span>Nastavenia</span></nav>
+        </div>
+        <div class="right">
+          <span>Vozidlo:<span class="sel">Škoda Octavia (BA123XY) v</span></span>
+          <span>Rok:<span class="sel">2026 v</span></span>
+        </div>
+      </div>
+      <div class="content">
+        <div class="places-page">
+          <div class="places-section">
+            <h3 class="places-heading"><span>Miesta</span><span class="places-counter">6/8 umiestnených</span></h3>
+            <div class="bar"><span class="btn">Pridať miesto</span></div>
+            <span class="tin ph">Hľadať...</span>
+            <div class="plist" style="position:relative">
+              <div class="prow"><div class="pinfo"><strong><span class="unpl">⚠</span> Klient Trnava</strong><span class="det">3 výskyty</span></div><div class="pact"><span class="htg"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V21h14V9.5"/></svg></span><span class="coords miss">-</span><span class="btn">Upraviť</span><span class="btn">Premenovať</span><span class="btn dis">Zmazať</span></div></div>
+              <span class="tip" style="left:140px;top:12px">Treba doplniť polohu</span>
+              <div class="prow"><div class="pinfo"><strong><span class="unpl">⚠</span> Hotel</strong><span class="det">1 výskyt</span></div><div class="pact"><span class="htg"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V21h14V9.5"/></svg></span><span class="coords miss">-</span><span class="btn">Upraviť</span><span class="btn">Premenovať</span><span class="btn dis">Zmazať</span></div></div>
+              <div class="prow"><div class="pinfo"><strong>Domov</strong><span class="det">96 výskytov</span></div><div class="pact"><span class="htg home"><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V21h14V9.5"/></svg></span><span class="coords">48.152, 17.118</span><span class="btn">Upraviť</span><span class="btn">Premenovať</span><span class="btn dis">Zmazať</span></div></div>
+              <div class="prow"><div class="pinfo"><strong>Kancelária</strong><span class="det">88 výskytov</span></div><div class="pact"><span class="htg"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V21h14V9.5"/></svg></span><span class="coords">48.144, 17.112</span><span class="btn">Upraviť</span><span class="btn">Premenovať</span><span class="btn dis">Zmazať</span></div></div>
+              <div class="prow"><div class="pinfo"><strong>Klient Poprad</strong><span class="det">41 výskytov</span></div><div class="pact"><span class="htg"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V21h14V9.5"/></svg></span><span class="coords">49.056, 20.298</span><span class="btn">Upraviť</span><span class="btn">Premenovať</span><span class="btn dis">Zmazať</span></div></div>
+              <div class="prow"><div class="pinfo"><strong>Sklad</strong><span class="det">22 výskytov</span></div><div class="pact"><span class="htg"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V21h14V9.5"/></svg></span><span class="coords">48.186, 17.168</span><span class="btn">Upraviť</span><span class="btn">Premenovať</span><span class="btn dis">Zmazať</span></div></div>
+              <div class="prow" style="position:relative"><div class="pinfo"><strong>Pobočka Bratislava</strong><span class="det">9 výskytov</span></div><div class="pact"><span class="htg"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V21h14V9.5"/></svg></span><span class="coords">48.159, 17.128</span><span class="btn">Upraviť</span><span class="btn">Premenovať</span><span class="btn dis">Zmazať</span></div><span class="tip" style="right:0;top:-20px">Miesto je použité 9-krát.</span></div>
+              <div class="prow"><div class="pinfo"><strong>Čerpacia stanica D1</strong><span class="det">0 výskytov</span></div><div class="pact"><span class="htg"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V21h14V9.5"/></svg></span><span class="coords">48.212, 17.255</span><span class="btn">Upraviť</span><span class="btn">Premenovať</span><span class="btn">Zmazať</span></div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <ul class="ann">
+      <li>The page loads the list once, at mount, with <code>list_places</code>. The list holds every place of the book. The vehicle and the year pickers do not filter it.</li>
+      <li>The backend sorts the list: the places with no position first, then the most used, then the name. The page does not sort again (ADR-008).</li>
+      <li>"{n}/{total} umiestnených": n counts the places that have a latitude and a longitude.</li>
+      <li>The use count is the number of trip endpoints (origin or destination) that point at the place, for all vehicles and all years. A trip from a place to the same place counts 2.</li>
+      <li>The use text follows the Slovak plural: "1 výskyt", "2 výskyty" to "4 výskyty", "0 výskytov" and "5 výskytov" or more.</li>
+      <li><b>⚠</b> shows when the place has no position (tooltip "Treba doplniť polohu"). This occurs for a place that the database migration made from the old trip text. The coordinates then show "-".</li>
+      <li>The coordinates are latitude, longitude, rounded to 3 decimals (about 100 m).</li>
+      <li>The house is the home mark. It is filled for the home place, and pale for the others. The tooltip is "Zrušiť označenie domova" on the home place and "Označiť ako domov" on the others.</li>
+      <li>A click on the house calls <code>set_home_place</code> with the place id, or with <code>null</code> on the home place. Only one place can be home, so a new mark removes the old one.</li>
+      <li>The home mark is the "home" of the journey grouping (BIZ-026). The MCP tool <code>list_journeys</code> reads it, and it returns an error when no place is home.</li>
+      <li>"Upraviť" opens the map dialog (frame 3). "Premenovať" opens the rename input in the row (frame 2).</li>
+      <li>"Zmazať" is disabled when a trip uses the place. Its tooltip is then "Miesto je použité {n}-krát.". Else it opens the confirm (frame 6).</li>
+      <li>"Hľadať..." shows only when the book has a place. It filters in the browser on each key, with no RPC call.</li>
+      <li>The filter lowercases and trims the query. A row matches when the query is in the lowercased name or in <code>normalisedName</code>.</li>
+      <li><code>normalisedName</code> comes from the backend fold <code>places::normalise</code>: lowercase, no diacritics, one space. So "Kosice" finds "Košice". "košice" finds it through the name.</li>
+    </ul>
+  </section>
+
+  <!-- 2. Inline add and rename -->
+  <section class="frame">
+    <h2>2. Inline add ("Pridať miesto") and inline rename ("Premenovať")</h2>
+    <div class="window">
+      <div class="content">
+        <div class="places-page">
+          <div class="places-section">
+            <h3 class="places-heading"><span>Miesta</span><span class="places-counter">6/8 umiestnených</span></h3>
+            <div class="bar"><span class="tin focus">Klient Nitra</span><span class="btn">Ďalej</span><span class="btn">Zrušiť</span></div>
+            <span class="tin ph">Hľadať...</span>
+            <div class="plist">
+              <div class="prow"><div class="pinfo"><strong><span class="unpl">⚠</span> Klient Trnava</strong><span class="det">3 výskyty</span></div><div class="pact"><span class="htg"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V21h14V9.5"/></svg></span><span class="coords miss">-</span><span class="btn">Upraviť</span><span class="btn">Premenovať</span><span class="btn dis">Zmazať</span></div></div>
+              <div class="prow"><div class="pinfo"><div class="bar"><span class="tin focus">Klient Poprad - centrum</span><span class="btn">Uložiť názov</span><span class="btn">Zrušiť</span></div><span class="det">41 výskytov</span></div><div class="pact"><span class="htg"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V21h14V9.5"/></svg></span><span class="coords">49.056, 20.298</span><span class="btn">Upraviť</span><span class="btn">Premenovať</span><span class="btn dis">Zmazať</span></div></div>
+              <div class="prow"><div class="pinfo"><strong>Sklad</strong><span class="det">22 výskytov</span></div><div class="pact"><span class="htg"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V21h14V9.5"/></svg></span><span class="coords">48.186, 17.168</span><span class="btn">Upraviť</span><span class="btn">Premenovať</span><span class="btn dis">Zmazať</span></div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <ul class="ann">
+      <li><b>Add.</b> "Pridať miesto" changes to the input "Názov miesta" (placeholder), "Ďalej" and "Zrušiť". "Ďalej" is disabled while the input is blank.</li>
+      <li>Enter does the same as "Ďalej". Escape does the same as "Zrušiť".</li>
+      <li>"Ďalej" writes nothing. It opens the map dialog (frame 3) with the typed name. A new place always gets a name and a position together.</li>
+      <li>"Uložiť miesto" in the dialog calls <code>create_place</code> with the name, the latitude, the longitude and the source. On success the add bar closes and the list loads again.</li>
+      <li>If the user closes the dialog, nothing is saved. The add bar stays open with the typed name.</li>
+      <li><b>Rename.</b> "Premenovať" puts an input with the current name in place of the name. "Uložiť názov" is disabled while the input is blank. Enter saves, Escape cancels.</li>
+      <li>Only one row can be in rename at a time. The buttons on the right of the row stay active.</li>
+      <li>"Uložiť názov" calls <code>rename_place</code>. Trips store the place id, not the text (ADR-055), so the new name shows on every trip, also in past years.</li>
+      <li>The backend joins the extra spaces of a name. It refuses a name whose fold (<code>places::normalise</code>) another place already has: "Miesto s týmto názvom už existuje: {name}". The app does not merge two places.</li>
+      <li>The same rule applies to a new place. A blank name returns "Miesto musí mať názov". These texts come from <code>places_cmd.rs</code>, not from i18n.</li>
+    </ul>
+  </section>
+
+  <!-- 3. PlaceModal -->
+  <section class="frame">
+    <h2>3. "Umiestniť na mape" dialog, after a search</h2>
+    <div class="window" style="height:760px">
+      <div class="content dim" style="height:100%">
+        <div class="places-page"><div class="places-section"><h3 class="places-heading"><span>Miesta</span><span class="places-counter">6/8 umiestnených</span></h3></div></div>
+      </div>
+      <div class="modal pm" style="top:24px">
+        <div class="pm-h"><h2>Umiestniť na mape<span class="pname">Klient Trnava</span></h2><span class="x">×</span></div>
+        <div class="pm-b">
+          <div class="bar"><span class="tin">Trnava</span><span class="btn">Hľadať</span></div>
+          <ul class="cands">
+            <li class="cand sel">Trnava, okres Trnava, Trnavský kraj, Slovensko</li>
+            <li class="cand">Trnavská cesta, Bratislava, Slovensko</li>
+            <li class="cand">Trnava pri Laborci, okres Michalovce, Košický kraj, Slovensko</li>
+          </ul>
+          <div class="mapbox" style="height:320px">
+            <div class="zoom"><span>+</span><span>-</span></div>
+            <svg viewBox="0 0 520 320" preserveAspectRatio="xMidYMid slice" aria-hidden="true" fill="none">
+              <rect x="300" y="30" width="120" height="70" rx="6" fill="var(--accent-success)" opacity="0.18"/>
+              <rect x="60" y="210" width="90" height="60" rx="6" fill="var(--accent-success)" opacity="0.18"/>
+              <path d="M0 260 C120 230 200 290 320 250 S470 220 520 240" stroke="var(--accent-primary)" stroke-width="10" fill="none" opacity="0.35"/>
+              <path d="M0 150 L520 170" stroke="var(--bg-surface)" stroke-width="9"/>
+              <path d="M240 0 L265 320" stroke="var(--bg-surface)" stroke-width="9"/>
+              <path d="M0 60 L200 110 L520 90" stroke="var(--bg-surface)" stroke-width="5"/>
+              <path d="M120 0 L170 320" stroke="var(--bg-surface)" stroke-width="5"/>
+              <path d="M380 0 L360 320" stroke="var(--bg-surface)" stroke-width="5"/>
+              <path d="M0 210 L520 200" stroke="var(--bg-surface)" stroke-width="4"/>
+              <text x="276" y="148" font-size="13" fill="var(--text-secondary)">Trnava</text>
+              <circle cx="252" cy="160" r="9" fill="var(--accent-primary)" stroke="var(--bg-surface)" stroke-width="3"/>
+            </svg>
+            <span class="attr">© OpenStreetMap contributors</span>
+          </div>
+          <div class="pinrow"><span class="hint">Špendlík presuniete myšou na presné miesto.</span><span class="c">48.377, 17.588</span></div>
+        </div>
+        <div class="pm-f"><span class="btn">Zrušiť</span><span class="btn primary">Uložiť miesto</span></div>
+      </div>
+    </div>
+    <ul class="ann">
+      <li>"Upraviť" (an existing place) or "Ďalej" (a new place) opens the dialog. The title is "Umiestniť na mape", with the place name under it.</li>
+      <li>The search input (placeholder "Zadajte adresu alebo názov miesta") starts with the place name. The user can change the query.</li>
+      <li>Only "Hľadať" or Enter starts a search, never a key press: Nominatim allows one request per second. The RPC is <code>geocode_place</code>. It writes nothing.</li>
+      <li>The backend asks the public Nominatim with <code>limit=5</code> and <code>accept-language=sk</code>, and with no country filter (ADR-035). So the list has up to 5 results, best first.</li>
+      <li>A result text is the address of the geocoder. A click on a result sets the pin there, zooms the map to level 15, and marks the result green. The page keeps only the coordinate, not the result text.</li>
+      <li>The map is Leaflet with OpenStreetMap tiles. A place with a position opens at its pin, zoom 15. A place with no position opens on Slovakia, zoom 7, with no pin.</li>
+      <li>A click on the map sets the pin. The pin is draggable. A click or a drag sets the source to <code>manual</code>; a result sets it to <code>geocoder</code>.</li>
+      <li>The coordinates under the map show the pending pin to 3 decimals, or a long dash (U+2014, the literal in <code>PlaceModal.svelte:205</code>) with no pin. Nothing is saved before "Uložiť miesto".</li>
+      <li>"Uložiť miesto" is disabled with no pin. It calls <code>set_place_position</code> (existing place) or <code>create_place</code> (new place), then closes the dialog and loads the list again.</li>
+      <li>"Zrušiť", the × button, a click on the dark background and Escape close the dialog with no write.</li>
+    </ul>
+  </section>
+
+  <!-- 4. Search states -->
+  <section class="frame">
+    <h2>4. The search states of the dialog</h2>
+    <div class="window">
+      <div class="content">
+        <div class="mini">
+          <div class="panel">
+            <span class="cap">Open, no search yet (place with no position)</span>
+            <div class="bar"><span class="tin">Klient Trnava</span><span class="btn">Hľadať</span></div>
+            <div class="mapbox" style="height:90px"><svg viewBox="0 0 520 90" preserveAspectRatio="none" aria-hidden="true"><text x="230" y="50" font-size="13" fill="var(--text-secondary)">Slovensko</text></svg></div>
+            <div class="pinrow"><span class="hint">Špendlík presuniete myšou na presné miesto.</span><span class="c">—</span></div>
+            <div class="row" style="justify-content:flex-end"><span class="btn">Zrušiť</span><span class="btn primary dis">Uložiť miesto</span></div>
+          </div>
+          <div class="panel">
+            <span class="cap">Search runs</span>
+            <div class="bar"><span class="tin">Klient Trnava</span><span class="btn dis">Hľadám...</span></div>
+            <p class="status">Hľadám...</p>
+          </div>
+          <div class="panel">
+            <span class="cap">No result</span>
+            <div class="bar"><span class="tin">Klient Trnava</span><span class="btn">Hľadať</span></div>
+            <p class="status">Nič sa nenašlo. Umiestnite špendlík na mape ručne.</p>
+          </div>
+          <div class="panel">
+            <span class="cap">The search failed</span>
+            <div class="bar"><span class="tin">Trnava</span><span class="btn">Hľadať</span></div>
+            <p class="status error">Vyhľadávanie zlyhalo. Skúste to znova.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+    <ul class="ann">
+      <li>Before the first search, the dialog shows no status line. With no pin, "Uložiť miesto" is disabled.</li>
+      <li>While a search runs, the button reads "Hľadám..." and is disabled. The status line under it also reads "Hľadám...".</li>
+      <li>An empty answer shows "Nič sa nenašlo. Umiestnite špendlík na mape ručne." The user then clicks the map to set the pin.</li>
+      <li>Any error (network, Nominatim rate limit, block) shows "Vyhľadávanie zlyhalo. Skúste to znova." in red. The old results go away, so no result of an old query can be saved.</li>
+      <li>A new search replaces the results. The pin stays where it is until the user picks a result or moves the pin.</li>
+      <li>The integration tests set <code>KNIHA_JAZD_MOCK_GEOCODER_DIR</code>: the backend then reads the answers from files and uses no network.</li>
+    </ul>
+  </section>
+
+  <!-- 5. Empty states -->
+  <section class="frame">
+    <h2>5. Empty book, and a filter with no match</h2>
+    <div class="window">
+      <div class="content">
+        <div class="mini">
+          <div class="places-section">
+            <h3 class="places-heading"><span>Miesta</span><span class="places-counter">0/0 umiestnených</span></h3>
+            <div class="bar"><span class="btn">Pridať miesto</span></div>
+            <p class="placeholder">Žiadne miesta. Pridajte prvé miesto tlačidlom vyššie.</p>
+          </div>
+          <div class="places-section">
+            <h3 class="places-heading"><span>Miesta</span><span class="places-counter">6/8 umiestnených</span></h3>
+            <div class="bar"><span class="btn">Pridať miesto</span></div>
+            <span class="tin focus">Zilina</span>
+            <p class="placeholder">Hľadaniu nezodpovedá žiadne miesto.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+    <ul class="ann">
+      <li>With no place in the book, the filter input does not show, and the list shows "Žiadne miesta. Pridajte prvé miesto tlačidlom vyššie."</li>
+      <li>With places, but no match for the filter, the list shows "Hľadaniu nezodpovedá žiadne miesto." The counter still counts the whole book.</li>
+      <li>If <code>list_places</code> fails, the page writes the error only to the console. The list then stays empty and shows the empty-book text.</li>
+    </ul>
+  </section>
+
+  <!-- 6. Delete confirm and toasts -->
+  <section class="frame">
+    <h2>6. Delete confirm ("Zmazať miesto?") and the toasts</h2>
+    <div class="window" style="height:300px">
+      <div class="content dim" style="height:100%">
+        <div class="places-page"><div class="places-section"><h3 class="places-heading"><span>Miesta</span><span class="places-counter">6/8 umiestnených</span></h3></div></div>
+      </div>
+      <div class="modal cm" style="top:70px">
+        <h2>Zmazať miesto?</h2>
+        <p>Miesto "Čerpacia stanica D1" sa zmaže.</p>
+        <div class="foot"><span class="btn">Zrušiť</span><span class="btn soft-danger">Zmazať</span></div>
+      </div>
+    </div>
+    <div class="window">
+      <div class="content">
+        <div class="toast-stack">
+          <div class="toast ok"><span>✓</span><span>Miesto uložené</span></div>
+          <div class="toast ok"><span>✓</span><span>Miesto premenované</span></div>
+          <div class="toast ok"><span>✓</span><span>Miesto zmazané</span></div>
+          <div class="toast ok"><span>✓</span><span>Domov je nastavený</span></div>
+          <div class="toast ok"><span>✓</span><span>Označenie domova je zrušené</span></div>
+          <div class="toast err"><span>✗</span><span>Nepodarilo sa premenovať miesto: Error: Miesto s týmto názvom už existuje: Sklad</span></div>
+        </div>
+      </div>
+    </div>
+    <ul class="ann">
+      <li>The confirm opens only for a place with 0 uses. "Zrušiť", Escape or a click on the background closes it.</li>
+      <li>"Zmazať" calls <code>delete_place</code>. The backend counts the trips again in the same transaction. It also deletes the saved routes of the place, because a route with no trip does not show anywhere.</li>
+      <li>If a trip uses the place at that time, the backend refuses: "Miesto používa {n} jázd, nedá sa zmazať" (backend text in <code>places_cmd.rs</code>).</li>
+      <li>The toasts show at the top right. A success toast stays 4 s, an error toast 6 s.</li>
+      <li>Each write has its error toast with the backend message: "Nepodarilo sa uložiť miesto: ...", "Nepodarilo sa premenovať miesto: ...", "Nepodarilo sa zmazať miesto: ...", "Domov sa nepodarilo nastaviť: ...".</li>
+      <li>The page builds the message with <code>String(error)</code>, so the text carries the prefix "Error: " (see the open points).</li>
+    </ul>
+  </section>
+
+  <!-- 7. Read-only -->
+  <section class="frame">
+    <h2>7. Read-only mode</h2>
+    <div class="window">
+      <div class="apphdr">
+        <div class="left">
+          <span class="title">Kniha Jázd</span>
+          <nav><span>Doklady</span><span class="on">Miesta</span><span>Nastavenia</span></nav>
+        </div>
+        <div class="right">
+          <span>Vozidlo:<span class="sel">Škoda Octavia (BA123XY) v</span></span>
+          <span>Rok:<span class="sel">2026 v</span></span>
+        </div>
+      </div>
+      <div class="banner-ro"><span>⚠️</span><span>Databáza bola aktualizovaná novšou verziou aplikácie. Režim len na čítanie.</span></div>
+      <div class="content">
+        <div class="places-page">
+          <div class="places-section">
+            <h3 class="places-heading"><span>Miesta</span><span class="places-counter">6/8 umiestnených</span></h3>
+            <div class="bar"><span class="btn dis">Pridať miesto</span></div>
+            <span class="tin focus">kanc</span>
+            <div class="plist">
+              <div class="prow"><div class="pinfo"><strong>Kancelária</strong><span class="det">88 výskytov</span></div><div class="pact"><span class="htg"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V21h14V9.5"/></svg></span><span class="coords">48.144, 17.112</span><span class="btn dis">Upraviť</span><span class="btn dis">Premenovať</span><span class="btn dis">Zmazať</span></div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <ul class="ann">
+      <li>The yellow banner of the app shell shows when the database has migrations that this build does not know.</li>
+      <li>The page then disables "Pridať miesto", the house, "Upraviť", "Premenovať" and "Zmazať" (<code>appModeStore.isReadOnly</code>).</li>
+      <li>The list and the filter still work. The filter "kanc" here shows only "Kancelária".</li>
+      <li>The backend also refuses each place write with <code>check_read_only!</code>: <code>create_place</code>, <code>rename_place</code>, <code>set_place_position</code>, <code>set_home_place</code>, <code>delete_place</code>.</li>
+    </ul>
+  </section>
+
+  <!-- 8. Trips accept only a place from the book -->
+  <section class="frame">
+    <h2>8. Jazdy editor: a trip accepts only a place from the book</h2>
+    <div class="window">
+      <div class="content">
+        <div class="card">
+          <table class="tbl">
+            <tr><th>Začiatok</th><th>Koniec</th><th>Odkiaľ</th><th>Kam</th><th class="n">Km</th><th>Účel</th></tr>
+            <tr style="background:var(--editing-row-bg)"><td>03.11. 08:10</td><td>03.11. 09:25</td><td>Kancelária</td><td><span class="input">Klient Nitra</span></td><td class="n">92</td><td>rokovanie</td></tr>
+          </table>
+          <div class="place-error">Miesto "Klient Nitra" neexistuje. <a href="#">Pridajte ho na karte Miesta.</a></div>
+        </div>
+      </div>
+    </div>
+    <ul class="ann">
+      <li>A trip stores the ids of its two places (ADR-055, BIZ-025). The save in the Jazdy editor looks up each typed name in the book.</li>
+      <li>The lookup uses the same fold: <code>find_place</code> calls <code>places::normalise</code>. So "kancelaria" finds "Kancelária", and the trip stores the book spelling.</li>
+      <li>If a name is not in the book, the save stops and the row shows "Miesto "{name}" neexistuje." with the link "Pridajte ho na karte Miesta.".</li>
+      <li>The link opens <code>/miesta</code> in a new tab, so the open row keeps its data.</li>
+      <li>If the lookup itself fails, the row shows "Miesto sa nepodarilo overiť. Skúste to znova."</li>
+      <li>Outside this page, Fuelio "+ Nové miesto tu" and the phone page <code>/m/nova</code> also create places, with the same name rule.</li>
+    </ul>
+  </section>
+
+  <section class="open-points">
+    <h2>Open points (from the code, not fixed)</h2>
+    <ul class="ann">
+      <li>The error toasts show "Error: " before the backend message. <code>apiCall</code> throws <code>new Error(text)</code> (<code>src/lib/api-adapter.ts:16</code>), and the page formats it with <code>String(error)</code> (<code>src/routes/miesta/+page.svelte:106</code>, <code>:147</code>, <code>:159</code>, <code>:173</code>).</li>
+      <li>A failed <code>list_places</code> shows the empty-book text, not an error. The catch only logs to the console (<code>src/routes/miesta/+page.svelte:62-64</code>).</li>
+      <li>The name sort is the byte order of the string, not the Slovak order. A name that starts with a letter with a diacritic ("Čerpacia ...", "Žilina") sorts after "Z" in its group (<code>src-tauri/core/src/commands_internal/places_cmd.rs:27</code>).</li>
+      <li>The list shows "-" for no position, but the dialog shows a long dash, U+2014 (<code>src/routes/miesta/+page.svelte:313</code>, <code>src/lib/components/PlaceModal.svelte:205</code>).</li>
+      <li>"Hľadám..." shows twice while a search runs: on the button and in the status line (<code>src/lib/components/PlaceModal.svelte:251</code>, <code>:256</code>).</li>
+      <li>The i18n key <code>places.unplaced</code> ("Neumiestnené") has no use in <code>src/</code> (<code>src/lib/i18n/sk/index.ts:792</code>).</li>
+    </ul>
+  </section>
+
+</div>
+<script>
+(function () {
+  var root = document.documentElement;
+  try { if (window.matchMedia("(prefers-color-scheme: dark)").matches) root.setAttribute("data-theme", "dark"); } catch (e) {}
+  document.getElementById("themebtn").addEventListener("click", function () {
+    root.setAttribute("data-theme", root.getAttribute("data-theme") === "dark" ? "light" : "dark");
+  });
+})();
+</script>
+<script>
+(function () {
+  /* Outside claude.ai (a local file, GitHub Pages, a raw-HTML proxy) the page nav uses the
+     repo files next to this one; on claude.ai it keeps the artifact links. */
+  var h = location.hostname;
+  if (location.protocol === "file:" || /github\.io$|githack\.com$/.test(h)) {
+    var links = document.querySelectorAll("a[data-file]");
+    for (var i = 0; i < links.length; i++) links[i].href = links[i].getAttribute("data-file");
+  }
+})();
+</script>
+</body>
+</html>

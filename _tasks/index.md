@@ -2,12 +2,13 @@
 
 Quick overview of all tasks and their status.
 
-**Last updated:** 2026-11-05 (Task [94](./94-mobile-route-alternatives/) added.)
+**Last updated:** 2026-11-06 (Task [95](./95-ui-mockups/) added.)
 
 ## Active Tasks
 
 | # | Task | Status | Notes |
 |---|------|--------|-------|
+| 95 | [UI Mockups](95-ui-mockups/) | 🟡 In Progress | Mockup-first workflow for UI changes (`/mockup` skill, mockup files in [docs/mockups/](../docs/mockups/README.md), drift check in `/verify`); mockups of all PC pages, each published as a private claude.ai artifact |
 | 94 | [Mobile Route Alternatives](94-mobile-route-alternatives/) | 🟡 In Progress | `/m/nova`: route map, route alternatives (chips + tap on the map), OSRM / Sygic switch, the chosen route saved with the trip; branch `feat/mobile-route-alternatives` |
 | 93 | [Mobile UI](93-mobile-ui/) | 🟡 In Progress | Phone pages under `/m`: trip list with read-only detail, add from Fuelio with the GPS map, add by hand with GPS or address places; branch `feat/93-mobile-ui`, not merged; see [docs/features/mobile.md](../docs/features/mobile.md) |
 | 92 | [Excel Export](92-excel-export/) | ✅ Complete | `.xlsx` export for a tax audit: the same header, rows, totals and settings as the print export; route maps on sheet 2; exact values, shown rounded; no formulas |

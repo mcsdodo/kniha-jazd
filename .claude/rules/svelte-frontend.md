@@ -34,6 +34,7 @@ typed function - add new commands there, not in components.
 
 ## Adding a New User Flow
 
+0. Draw it in the mockup file of the page first and get the user's approval (`mockup` skill, [docs/mockups/](../../docs/mockups/README.md))
 1. Write integration test for the UI interaction (see `.claude/rules/integration-tests.md`)
 2. Implement frontend UI (calls existing backend commands)
 3. If new backend logic needed, add backend unit tests first (see `.claude/rules/rust-backend.md`)
