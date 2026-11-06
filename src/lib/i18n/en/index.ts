@@ -657,7 +657,6 @@ const en = {
 			totalKm: '{km} km',
 			remaining: '{liters} l remaining',
 			// Trip card
-			odometer: 'odo. {km}',
 			fillup: 'Fill-up {liters} l',
 			fillupFull: 'full',
 			fillupPartial: 'partial',

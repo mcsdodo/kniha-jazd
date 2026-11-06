@@ -26,12 +26,15 @@
 >
 	<span class="top">
 		<span>{dayLabel(trip.startDatetime, $locale)} {timeRange(trip.startDatetime, trip.endDatetime)}</span>
-		<span class="km">{whole(trip.distanceKm, $locale)} km</span>
+		<span class="km">
+			<span>{whole(trip.distanceKm, $locale)} km</span>
+			<span class="odo" data-testid="mobile-trip-odometer">{whole(trip.odometer, $locale)}</span>
+		</span>
 	</span>
 	<span class="route">{trip.origin} -&gt; {trip.destination}</span>
-	<span class="meta">
-		{#if trip.purpose}{trip.purpose}, {/if}{$LL.mobile.trips.odometer({ km: whole(trip.odometer, $locale) })}
-	</span>
+	{#if trip.purpose}
+		<span class="meta">{trip.purpose}</span>
+	{/if}
 	{#if hasFuel || hasCharge || overLimit || missingInvoice}
 		<span class="pills">
 			{#if hasFuel}
@@ -96,7 +99,16 @@
 	}
 
 	.km {
+		display: flex;
+		flex-direction: column;
+		align-items: flex-end;
 		white-space: nowrap;
+	}
+
+	.odo {
+		font-size: 0.8rem;
+		font-weight: 400;
+		color: var(--text-secondary);
 	}
 
 	.route {

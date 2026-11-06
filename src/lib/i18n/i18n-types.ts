@@ -2225,11 +2225,6 @@ type RootTranslation = {
 			 */
 			remaining: RequiredParams<'liters'>
 			/**
-			 * t​a​c​h​.​ ​{​k​m​}
-			 * @param {string} km
-			 */
-			odometer: RequiredParams<'km'>
-			/**
 			 * T​a​n​k​o​v​a​n​i​e​ ​{​l​i​t​e​r​s​}​ ​l
 			 * @param {string} liters
 			 */
@@ -5685,10 +5680,6 @@ export type TranslationFunctions = {
 			 * zostatok {liters} l
 			 */
 			remaining: (arg: { liters: string }) => LocalizedString
-			/**
-			 * tach. {km}
-			 */
-			odometer: (arg: { km: string }) => LocalizedString
 			/**
 			 * Tankovanie {liters} l
 			 */

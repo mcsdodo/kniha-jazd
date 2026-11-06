@@ -658,7 +658,6 @@ const sk = {
 			totalKm: '{km:string} km',
 			remaining: 'zostatok {liters:string} l',
 			// Trip card
-			odometer: 'tach. {km:string}',
 			fillup: 'Tankovanie {liters:string} l',
 			fillupFull: 'plná',
 			fillupPartial: 'čiastočná',

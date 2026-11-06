@@ -24,6 +24,9 @@ databázu len na čítanie.
 ### Pridané
 - **Trasa pri ručnom pridaní jazdy na telefóne** - Stránka `/m/nova` ukazuje trasu medzi miestami Odkiaľ a Kam na mape. Ak smerovanie ponúkne viac trás, ukáže ich ako tlačidlá (najrýchlejšia prvá). Ťuknutie na tlačidlo alebo na sivú čiaru vyberie trasu a začiatok a km sa prepočítajú podľa nej. Ak má server `SYGIC_API_KEY`, nad mapou je prepínač OSRM a Sygic. Uložená jazda dostane vybranú trasu, takže detail jazdy ukazuje jej mapu.
 
+### Zmenené
+- **Stav tachometra v zozname jázd na telefóne** - Karta jazdy ukazuje stav tachometra sivou farbou pod najazdenými km, len ako číslo. Riadok pod trasou ukazuje len účel jazdy.
+
 ## [2.8.0] - 2026-11-05
 
 ### Pokyny k aktualizácii
