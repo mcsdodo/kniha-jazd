@@ -50,6 +50,11 @@
 	let isNew = $derived((page.state as { newPlace?: boolean }).newPlace === true);
 	let placeToDelete = $state<Place | null>(null);
 
+	// The question belongs to the open editor: close it with the editor.
+	$effect(() => {
+		if (!editId) placeToDelete = null;
+	});
+
 	function openEditor(placeId: string) {
 		pushState('', { placeId });
 	}
@@ -165,24 +170,6 @@
 	}
 </script>
 
-{#if editId && editPlace}
-	<MobileBar
-		title={$LL.mobile.places.editTitle()}
-		onback={closeEditor}
-		backLabel={$LL.places.title()}
-	/>
-	{#key editPlace.id}
-		<PlaceEditor
-			place={editPlace}
-			readOnly={$appModeStore.isReadOnly}
-			onsave={(draft) => saveExisting(editPlace.id, draft)}
-			ondelete={() => (placeToDelete = editPlace)}
-		/>
-	{/key}
-{:else if isNew}
-	<MobileBar title={$LL.places.add()} onback={closeEditor} backLabel={$LL.places.title()} />
-	<PlaceEditor place={null} readOnly={$appModeStore.isReadOnly} onsave={saveNew} ondelete={() => {}} />
-{:else}
 <MobileBar title={$LL.places.title()} backHref="/m" backLabel={$LL.mobile.places.back()} />
 
 <div class="body" data-testid="m-miesta">
@@ -243,6 +230,28 @@
 		</div>
 	{/each}
 </div>
+
+{#if editId && editPlace}
+	<div class="overlay">
+		<MobileBar
+			title={$LL.mobile.places.editTitle()}
+			onback={closeEditor}
+			backLabel={$LL.places.title()}
+		/>
+		{#key editPlace.id}
+			<PlaceEditor
+				place={editPlace}
+				readOnly={$appModeStore.isReadOnly}
+				onsave={(draft) => saveExisting(editPlace.id, draft)}
+				ondelete={() => (placeToDelete = editPlace)}
+			/>
+		{/key}
+	</div>
+{:else if isNew}
+	<div class="overlay">
+		<MobileBar title={$LL.places.add()} onback={closeEditor} backLabel={$LL.places.title()} />
+		<PlaceEditor place={null} readOnly={$appModeStore.isReadOnly} onsave={saveNew} ondelete={() => {}} />
+	</div>
 {/if}
 
 {#if placeToDelete}
@@ -258,6 +267,15 @@
 {/if}
 
 <style>
+	.overlay {
+		position: fixed;
+		inset: 0;
+		z-index: 50;
+		overflow-y: auto;
+		overscroll-behavior: contain;
+		background: var(--bg-body);
+	}
+
 	.body {
 		padding: 1rem;
 		display: flex;

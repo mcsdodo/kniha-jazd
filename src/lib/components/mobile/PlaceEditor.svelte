@@ -55,13 +55,18 @@
 
 	let locating = $state(false);
 	let geoError = $state<string | null>(null);
+	// Counts the pin changes. A GPS answer counts only if no other change
+	// (a newer request, a candidate pick, a tap or a drag) came after it started.
+	let pinVersion = 0;
 
 	let position = $derived(lat !== null && lon !== null ? { lat, lon } : null);
 	let canSave = $derived(
-		!readOnly && !saving && name.trim() !== '' && lat !== null && lon !== null && source !== null
+		!readOnly && !saving && !locating && name.trim() !== '' && lat !== null && lon !== null && source !== null
 	);
 
 	function onpick(newLat: number, newLon: number) {
+		pinVersion++;
+		locating = false; // drop a GPS request that is still open
 		lat = newLat;
 		lon = newLon;
 		source = 'manual';
@@ -87,6 +92,8 @@
 	}
 
 	function pickCandidate(candidate: GeocodeCandidate) {
+		pinVersion++;
+		locating = false; // drop a GPS request that is still open
 		lat = candidate.lat;
 		lon = candidate.lon;
 		source = 'geocoder';
@@ -109,15 +116,18 @@
 			return;
 		}
 		locating = true;
+		const version = ++pinVersion;
 		navigator.geolocation.getCurrentPosition(
 			(pos) => {
+				if (version !== pinVersion) return; // the pin was set another way meanwhile
 				locating = false;
 				lat = pos.coords.latitude;
 				lon = pos.coords.longitude;
 				source = 'manual';
-				pinnedByHand = false;
+				pinnedByHand = true; // GPS gives source manual: show the coords
 			},
 			(err) => {
+				if (version !== pinVersion) return;
 				locating = false;
 				geoError = geoMessage(err);
 			},

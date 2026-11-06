@@ -205,8 +205,11 @@ on the list, and the place stays.
     request may set a value. `placeId()` (line 191) creates a new place once per name,
     so a second save after a cancelled odometer dialog does not create it again.
   - [src/routes/m/miesta/+page.svelte](../../src/routes/m/miesta/+page.svelte) -- Task 96:
-    the place list, the search, and the shallow-routing entry of the edit screen. It
-    calls `listPlaces`, `createPlace`, `updatePlace`, `deletePlace` and `setHomePlace`.
+    the place list, the search, and the shallow-routing entry of the edit screen. The list
+    stays mounted; the edit screen is a fixed full-screen overlay (the same as the trip
+    detail), so the list keeps its scroll offset and the editor opens at its own top. It
+    calls `listPlaces`, `createPlace`, `renamePlace`, `setPlacePosition`, `setHomePlace`
+    and `deletePlace`. The delete question closes with the editor.
 - **Components** in [src/lib/components/mobile/](../../src/lib/components/mobile/):
   - [MobilePlacePicker.svelte](../../src/lib/components/mobile/MobilePlacePicker.svelte) -- one end of a trip. Fuelio mode (no `locate`): a new
     place gets the GPS point of the drive. Manual mode (`locate`): `locate_()` (line

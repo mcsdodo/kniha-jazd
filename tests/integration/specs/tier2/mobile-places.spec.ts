@@ -39,8 +39,14 @@ const SPEC_PLACES = [
   'Gamma Warehouse, Testville',
 ];
 
+/** Enough places to make the list scroll (the scroll-restore test). */
+const SCROLL_PLACES = Array.from(
+  { length: 30 },
+  (_, i) => `Scroll Place ${String(i + 1).padStart(2, '0')}, Testville`
+);
+
 async function forgetSpecPlaces(): Promise<void> {
-  for (const name of SPEC_PLACES) {
+  for (const name of [...SPEC_PLACES, ...SCROLL_PLACES]) {
     const found = await rpc<{ id: string } | null>('find_place', { name });
     if (!found) continue;
     try {
@@ -172,9 +178,15 @@ describe('Tier 2: Mobile places (/m/miesta)', () => {
     await browser.emulate('geolocation', { latitude: 48.3774, longitude: 17.5872, accuracy: 10 });
     await openEditor(id);
     await (await $('[data-testid="m-place-gps"]')).click();
+    // The position line shows the GPS point: the pin moved.
+    await expect($('[data-testid="m-place-position"]')).toHaveText(
+      expect.stringContaining('48.37740, 17.58720')
+    );
     await (await $('[data-testid="m-place-save"]')).click();
     const card = await cardByName('Kappa Lot, Testville');
     expect(await card.$('[data-testid="m-miesta-card-coords"]').getText()).toBe('48.37740, 17.58720');
+    const row = (await rpc<Place[]>('list_places', {})).find((p) => p.id === id)!;
+    expect(row.source).toBe('manual');
   });
 
   it('marks a place as home', async () => {
@@ -192,12 +204,17 @@ describe('Tier 2: Mobile places (/m/miesta)', () => {
     await openEditor(id);
     await (await $('[data-testid="m-place-name"]')).setValue('Nu Gate, Testville');
     await (await $('[data-testid="m-place-home"]')).click();
+    const map = await waitForLeaflet('m-place-map');
+    await map.click({ x: 80, y: 40 }); // move the pin: it must not be written
+    await expect($('[data-testid="m-place-position"]')).toHaveText(expect.stringContaining('(manual)'));
     await (await $('[data-testid="m-place-save"]')).click();
     await expect($('.toast-error')).toBeDisplayed();
     await expect($('[data-testid="m-place-editor"]')).toBeDisplayed();
     const row = (await rpc<Place[]>('list_places', {})).find((p) => p.id === id)!;
     expect(row.name).toBe('Xi Gate, Testville');
     expect(row.isHome).toBe(false);
+    expect(row.lat).toBe(48.15);
+    expect(row.lon).toBe(17.11);
   });
 
   it('closes the edit screen with the back gesture', async () => {
@@ -302,5 +319,27 @@ describe('Tier 2: Mobile places (/m/miesta)', () => {
     await openEditor(await ensurePlace('Sigma Yard, Testville'));
     await expect($('[data-testid="m-place-delete"]')).toBeDisabled();
     await expect($('[data-testid="m-place-in-use"]')).toHaveText(expect.stringContaining('1 time'));
+  });
+
+  it('opens the editor at its top and restores the list offset on back', async () => {
+    for (const name of SCROLL_PLACES) await ensurePlace(name);
+    await browser.url('/m/miesta');
+    const target = await cardByName('Scroll Place 28, Testville');
+    await target.scrollIntoView({ block: 'center' });
+    const before = await browser.execute(() => window.scrollY);
+    expect(before).toBeGreaterThan(200);
+    await target.click();
+    const input = await $('[data-testid="m-place-name"]');
+    await input.waitForDisplayed({ timeout: 10000 });
+    const top = await browser.execute(
+      () => (document.querySelector('[data-testid="m-place-name"]') as HTMLElement).getBoundingClientRect().top
+    );
+    expect(top).toBeGreaterThanOrEqual(40); // below the bar, not scrolled away
+    expect(top).toBeLessThan(300);
+    await browser.back();
+    await $('[data-testid="m-place-editor"]').waitForDisplayed({ reverse: true, timeout: 10000 });
+    await browser.pause(300);
+    const after = await browser.execute(() => window.scrollY);
+    expect(Math.abs(after - before)).toBeLessThanOrEqual(5);
   });
 });
