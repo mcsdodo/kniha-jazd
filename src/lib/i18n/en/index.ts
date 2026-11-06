@@ -642,6 +642,15 @@ const en = {
 			phoneLink: 'Phone version',
 			statsTitle: 'Stats {year}',
 		},
+		places: {
+			homeButton: 'Places',
+			homeHint: 'Name, position and home',
+			back: 'Back',
+			editTitle: 'Edit place',
+			position: 'Position',
+			mapHint: 'Tap the map or drag the pin.',
+			positionManual: 'Position: {coords} (manual)',
+		},
 		trips: {
 			title: 'Trips',
 			back: 'Back',

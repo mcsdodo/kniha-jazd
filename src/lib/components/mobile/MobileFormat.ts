@@ -78,3 +78,9 @@ export function fixed(n: number, digits = 1): string {
 function capitalize(s: string): string {
 	return s.charAt(0).toUpperCase() + s.slice(1);
 }
+
+/** "48.15000, 17.11000": five decimals (about 1 m). "-" if a value is missing. */
+export function coords5(lat: number | null, lon: number | null): string {
+	if (lat === null || lon === null) return '-';
+	return `${lat.toFixed(5)}, ${lon.toFixed(5)}`;
+}

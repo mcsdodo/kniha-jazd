@@ -2167,6 +2167,37 @@ type RootTranslation = {
 			 */
 			statsTitle: RequiredParams<'year'>
 		}
+		places: {
+			/**
+			 * M​i​e​s​t​a
+			 */
+			homeButton: string
+			/**
+			 * N​á​z​o​v​,​ ​p​o​l​o​h​a​ ​a​ ​d​o​m​o​v
+			 */
+			homeHint: string
+			/**
+			 * S​p​ä​ť
+			 */
+			back: string
+			/**
+			 * U​p​r​a​v​i​ť​ ​m​i​e​s​t​o
+			 */
+			editTitle: string
+			/**
+			 * P​o​l​o​h​a
+			 */
+			position: string
+			/**
+			 * Ť​u​k​n​i​t​e​ ​n​a​ ​m​a​p​u​ ​a​l​e​b​o​ ​p​o​s​u​ň​t​e​ ​š​p​e​n​d​l​í​k​.
+			 */
+			mapHint: string
+			/**
+			 * P​o​l​o​h​a​:​ ​{​c​o​o​r​d​s​}​ ​(​r​u​č​n​e​)
+			 * @param {string} coords
+			 */
+			positionManual: RequiredParams<'coords'>
+		}
 		trips: {
 			/**
 			 * J​a​z​d​y
@@ -5630,6 +5661,36 @@ export type TranslationFunctions = {
 			 * Štatistiky {year}
 			 */
 			statsTitle: (arg: { year: number }) => LocalizedString
+		}
+		places: {
+			/**
+			 * Miesta
+			 */
+			homeButton: () => LocalizedString
+			/**
+			 * Názov, poloha a domov
+			 */
+			homeHint: () => LocalizedString
+			/**
+			 * Späť
+			 */
+			back: () => LocalizedString
+			/**
+			 * Upraviť miesto
+			 */
+			editTitle: () => LocalizedString
+			/**
+			 * Poloha
+			 */
+			position: () => LocalizedString
+			/**
+			 * Ťuknite na mapu alebo posuňte špendlík.
+			 */
+			mapHint: () => LocalizedString
+			/**
+			 * Poloha: {coords} (ručne)
+			 */
+			positionManual: (arg: { coords: string }) => LocalizedString
 		}
 		trips: {
 			/**

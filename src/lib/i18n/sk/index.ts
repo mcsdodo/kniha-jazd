@@ -642,6 +642,15 @@ const sk = {
 			phoneLink: 'Mobilná verzia',
 			statsTitle: 'Štatistiky {year:number}',
 		},
+		places: {
+			homeButton: 'Miesta',
+			homeHint: 'Názov, poloha a domov',
+			back: 'Späť',
+			editTitle: 'Upraviť miesto',
+			position: 'Poloha',
+			mapHint: 'Ťuknite na mapu alebo posuňte špendlík.',
+			positionManual: 'Poloha: {coords:string} (ručne)',
+		},
 		trips: {
 			title: 'Jazdy',
 			back: 'Späť',

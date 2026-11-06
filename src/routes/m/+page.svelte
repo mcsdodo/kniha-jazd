@@ -130,6 +130,10 @@
 				>
 			{/if}
 		</a>
+		<a class="big alt" href="/m/miesta" data-testid="mobile-home-places">
+			{$LL.mobile.places.homeButton()}
+			<small>{$LL.mobile.places.homeHint()}</small>
+		</a>
 		{#if loadError}
 			<p class="error">{$LL.mobile.home.loadError({ error: loadError })}</p>
 		{/if}
