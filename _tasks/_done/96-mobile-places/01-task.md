@@ -1,6 +1,6 @@
 **Date:** 2026-11-06
 **Subject:** A places editor on the phone (`/m/miesta`)
-**Status:** Planning
+**Status:** Complete
 
 ## Goal
 
@@ -42,7 +42,7 @@ add a new place, without the PC page `/miesta`.
 
 ## Design
 
-Frames 1, 10, 11 and 12 of [docs/mockups/mobil.html](../../docs/mockups/mobil.html), marked
+Frames 1, 10, 11 and 12 of [docs/mockups/mobil.html](../../../docs/mockups/mobil.html), marked
 "Návrh (task 96)". The user approved them on 2026-11-06 (one comment: 5 decimals, applied).
 
 ## Technical Notes
@@ -52,7 +52,7 @@ Frames 1, 10, 11 and 12 of [docs/mockups/mobil.html](../../docs/mockups/mobil.ht
 - "Uložiť miesto" calls the commands in sequence from the page, not one atomic command. The
   approved mockup names these commands, and the order of writes is not a calculation
   (ADR-008). The rules for a failure are in the plan.
-- [PlaceModal.svelte](../../src/lib/components/PlaceModal.svelte) does not change. It is a source path of the Miesta and Mapa mockups,
-  so a change to it makes [scripts/mockup-drift.sh](../../scripts/mockup-drift.sh) list both pages. The phone gets its own
-  pin map in [src/lib/components/mobile/](../../src/lib/components/mobile/).
+- [PlaceModal.svelte](../../../src/lib/components/PlaceModal.svelte) does not change. It is a source path of the Miesta and Mapa mockups,
+  so a change to it makes [scripts/mockup-drift.sh](../../../scripts/mockup-drift.sh) list both pages. The phone gets its own
+  pin map in [src/lib/components/mobile/](../../../src/lib/components/mobile/).
 - The GPS errors use the existing labels `mobile.add.picker.{insecure,denied,timeout,unavailable}`.

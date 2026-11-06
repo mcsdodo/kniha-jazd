@@ -2,13 +2,12 @@
 
 Quick overview of all tasks and their status.
 
-**Last updated:** 2026-11-06 (Task [96](./96-mobile-places/) in progress.)
+**Last updated:** 2026-11-06 (Task [96](./_done/96-mobile-places/) archived.)
 
 ## Active Tasks
 
 | # | Task | Status | Notes |
 |---|------|--------|-------|
-| 96 | [Mobile Places](96-mobile-places/) | 🟡 In Progress | `/m/miesta`: place list with search, edit screen (name, position by search, map tap or GPS, home mark, delete), new place; frontend only; mockup: screens 1, 10-12 of [docs/mockups/mobil.html](../docs/mockups/mobil.html) |
 | 95 | [UI Mockups](95-ui-mockups/) | 🟡 In Progress | Mockup-first workflow for UI changes (`/mockup` skill, mockup files in [docs/mockups/](../docs/mockups/README.md), drift check in `/verify`); mockups of all PC pages, each published as a private claude.ai artifact |
 | 94 | [Mobile Route Alternatives](94-mobile-route-alternatives/) | 🟡 In Progress | `/m/nova`: route map, route alternatives (chips + tap on the map), OSRM / Sygic switch, the chosen route saved with the trip; branch `feat/mobile-route-alternatives` |
 | 93 | [Mobile UI](93-mobile-ui/) | 🟡 In Progress | Phone pages under `/m`: trip list with read-only detail, add from Fuelio with the GPS map, add by hand with GPS or address places; branch `feat/93-mobile-ui`, not merged; see [docs/features/mobile.md](../docs/features/mobile.md) |
@@ -24,6 +23,7 @@ Quick overview of all tasks and their status.
 
 | # | Task | Completed |
 |---|------|-----------|
+| 96 | [Mobile Places](./_done/96-mobile-places/) -- `/m/miesta`: place list with search, edit screen (name, position by search, map tap or GPS, home mark, delete), new place; frontend only; mockup: screens 1, 10-12 of [docs/mockups/mobil.html](../docs/mockups/mobil.html); on `main`, not released | 2026-11-06 |
 | 89 | [Home Place + MCP](./_done/89-home-place-mcp/) -- ✅ A home mark on a place, journey grouping in core, and a read-only MCP endpoint at `/mcp`; see [docs/features/mcp-endpoint.md](../docs/features/mcp-endpoint.md) and [BIZ-026](../DECISIONS.md#biz-026-journeys-away-from-home) | 2026-10-05 |
 | 88 | [Places As Entities](./_done/88-places-as-entities/) -- ✅ Places get an ID; trips and routes reference places by ID; a trip accepts only an existing place; one-way migration; see [docs/features/place-book.md](../docs/features/place-book.md) | 2026-10-05 |
 | 87 | [Save And Apply Distance](./_done/87-save-and-apply-distance/) -- One "Uložiť a použiť vzdialenosť" button on `/mapa`: every save writes the route's whole-km distance to the trip in one transaction, in every mode (Loop too); supersedes the Direct-only scope of ADR-048 | 2026-09-29 |

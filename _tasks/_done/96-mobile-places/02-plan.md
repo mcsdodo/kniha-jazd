@@ -1,6 +1,6 @@
 **Date:** 2026-11-06
 **Subject:** A places editor on the phone (`/m/miesta`)
-**Status:** Planning
+**Status:** Complete
 
 # Mobile Places Editor Implementation Plan
 
@@ -17,17 +17,17 @@ change.
 **Tech Stack:** SvelteKit 2 + Svelte 5 runes, TypeScript, Leaflet, typesafe-i18n, WebdriverIO.
 
 **Spec:** [01-task.md](01-task.md) and screens 1, 10, 11 and 12 of
-[docs/mockups/mobil.html](../../docs/mockups/mobil.html) ("Návrh (task 96)").
+[docs/mockups/mobil.html](../../../docs/mockups/mobil.html) ("Návrh (task 96)").
 
 ## Global Constraints
 
 - All business logic stays in Rust (ADR-008). The page does not sort, and it does not fold
   diacritics: the filter matches `name.toLowerCase()` or `normalisedName`, as on
-  [src/routes/miesta/+page.svelte](../../src/routes/miesta/+page.svelte).
+  [src/routes/miesta/+page.svelte](../../../src/routes/miesta/+page.svelte).
 - No write before "Uložiť miesto" (ADR-032). The stored name is the name field, never a
   geocoder label (ADR-034).
-- Do not change [PlaceModal.svelte](../../src/lib/components/PlaceModal.svelte),
-  [MobilePlacePicker.svelte](../../src/lib/components/mobile/MobilePlacePicker.svelte) or any
+- Do not change [PlaceModal.svelte](../../../src/lib/components/PlaceModal.svelte),
+  [MobilePlacePicker.svelte](../../../src/lib/components/mobile/MobilePlacePicker.svelte) or any
   file outside the Mobil mockup row, except the i18n files and the docs.
 - Every UI string goes through i18n, in `sk` and `en`. Run `npm run i18n` after each edit of
   the i18n files.
@@ -57,11 +57,11 @@ change.
 ### Task 1: The list page and the start page button
 
 **Files:**
-- Modify: [src/lib/i18n/sk/index.ts](../../src/lib/i18n/sk/index.ts), [src/lib/i18n/en/index.ts](../../src/lib/i18n/en/index.ts) (new `mobile.places` section)
-- Modify: [src/lib/components/mobile/MobileFormat.ts](../../src/lib/components/mobile/MobileFormat.ts)
-- Modify: [src/routes/m/+page.svelte](../../src/routes/m/+page.svelte)
-- Create: [src/routes/m/miesta/+page.svelte](../../src/routes/m/miesta/+page.svelte)
-- Test: [tests/integration/specs/tier2/mobile-places.spec.ts](../../tests/integration/specs/tier2/mobile-places.spec.ts)
+- Modify: [src/lib/i18n/sk/index.ts](../../../src/lib/i18n/sk/index.ts), [src/lib/i18n/en/index.ts](../../../src/lib/i18n/en/index.ts) (new `mobile.places` section)
+- Modify: [src/lib/components/mobile/MobileFormat.ts](../../../src/lib/components/mobile/MobileFormat.ts)
+- Modify: [src/routes/m/+page.svelte](../../../src/routes/m/+page.svelte)
+- Create: [src/routes/m/miesta/+page.svelte](../../../src/routes/m/miesta/+page.svelte)
+- Test: [tests/integration/specs/tier2/mobile-places.spec.ts](../../../tests/integration/specs/tier2/mobile-places.spec.ts)
 
 **Interfaces:**
 - Produces: `coords5(lat: number | null, lon: number | null): string` in `MobileFormat.ts`
@@ -85,9 +85,9 @@ change.
   `m-miesta-empty`, `m-miesta-no-matches`.
 
 - [ ] **Step 1: Write the failing spec.** Seed with `ensurePlace` and `seedTrip` from
-  [tests/integration/utils/db.ts](../../tests/integration/utils/db.ts). `ensurePlace` creates
+  [tests/integration/utils/db.ts](../../../tests/integration/utils/db.ts). `ensurePlace` creates
   at `48.15, 17.11`. Copy the `SPEC_PLACES` clean-up pattern of
-  [places.spec.ts](../../tests/integration/specs/tier2/places.spec.ts).
+  [places.spec.ts](../../../tests/integration/specs/tier2/places.spec.ts).
 
 ```ts
 describe('Tier 2: Mobile places (/m/miesta)', () => {
@@ -140,16 +140,16 @@ describe('Tier 2: Mobile places (/m/miesta)', () => {
 ### Task 2: The pin map and the edit screen of an existing place
 
 **Files:**
-- Create: [src/lib/components/mobile/PlacePinMap.svelte](../../src/lib/components/mobile/PlacePinMap.svelte)
-- Create: [src/lib/components/mobile/PlaceEditor.svelte](../../src/lib/components/mobile/PlaceEditor.svelte)
-- Modify: [src/routes/m/miesta/+page.svelte](../../src/routes/m/miesta/+page.svelte)
-- Test: [tests/integration/specs/tier2/mobile-places.spec.ts](../../tests/integration/specs/tier2/mobile-places.spec.ts)
+- Create: [src/lib/components/mobile/PlacePinMap.svelte](../../../src/lib/components/mobile/PlacePinMap.svelte)
+- Create: [src/lib/components/mobile/PlaceEditor.svelte](../../../src/lib/components/mobile/PlaceEditor.svelte)
+- Modify: [src/routes/m/miesta/+page.svelte](../../../src/routes/m/miesta/+page.svelte)
+- Test: [tests/integration/specs/tier2/mobile-places.spec.ts](../../../tests/integration/specs/tier2/mobile-places.spec.ts)
 
 **Interfaces:**
 - Consumes: `coords5`, the `mobile.places` keys (Task 1).
 - Produces `PlacePinMap` props:
   `{ position: { lat: number; lon: number } | null; onpick: (lat: number, lon: number) => void }`.
-  Copy the Leaflet setup of [PlaceModal.svelte](../../src/lib/components/PlaceModal.svelte)
+  Copy the Leaflet setup of [PlaceModal.svelte](../../../src/lib/components/PlaceModal.svelte)
   (lazy import, the `place-pin` div icon, a draggable marker, a click on the map calls
   `onpick`), with `scrollWheelZoom: false`. The start view is the position at zoom 15, or
   `[48.7, 19.7]` at zoom 7. When `position` changes from outside (search, GPS), the map pans
@@ -163,7 +163,7 @@ describe('Tier 2: Mobile places (/m/miesta)', () => {
   `m-place-save`, `m-place-delete`, `m-place-in-use`.
 - Open and close: the page calls `pushState('', { placeId })` (or `{ newPlace: true }` in
   Task 3), and reads `page.state`, the same as `openDetail` in
-  [src/routes/m/jazdy/+page.svelte](../../src/routes/m/jazdy/+page.svelte). The editor bar has
+  [src/routes/m/jazdy/+page.svelte](../../../src/routes/m/jazdy/+page.svelte). The editor bar has
   `onback={() => history.back()}`, label `places.title`.
 
 - [ ] **Step 1: Write the failing tests.**
@@ -279,12 +279,12 @@ it('closes the edit screen with the back gesture', async () => {
 ### Task 3: Add a new place and delete a place
 
 **Files:**
-- Modify: [src/routes/m/miesta/+page.svelte](../../src/routes/m/miesta/+page.svelte), [src/lib/components/mobile/PlaceEditor.svelte](../../src/lib/components/mobile/PlaceEditor.svelte)
-- Test: [tests/integration/specs/tier2/mobile-places.spec.ts](../../tests/integration/specs/tier2/mobile-places.spec.ts)
+- Modify: [src/routes/m/miesta/+page.svelte](../../../src/routes/m/miesta/+page.svelte), [src/lib/components/mobile/PlaceEditor.svelte](../../../src/lib/components/mobile/PlaceEditor.svelte)
+- Test: [tests/integration/specs/tier2/mobile-places.spec.ts](../../../tests/integration/specs/tier2/mobile-places.spec.ts)
 
 **Interfaces:**
 - Consumes: `PlaceEditor` with `place === null`, `PlaceDraft` (Task 2).
-- Uses [ConfirmModal.svelte](../../src/lib/components/ConfirmModal.svelte) for the delete
+- Uses [ConfirmModal.svelte](../../../src/lib/components/ConfirmModal.svelte) for the delete
   question, with `danger={true}`, as the PC page.
 
 - [ ] **Step 1: Write the failing tests.**
@@ -357,13 +357,13 @@ it('disables delete for a place that a trip uses', async () => {
 ### Task 4: Docs and the full check
 
 **Files:**
-- Modify: [CHANGELOG.md](../../CHANGELOG.md) (via `/changelog`), [README.md](../../README.md),
-  [README.en.md](../../README.en.md), [docs/features/mobile.md](../../docs/features/mobile.md),
-  [_tasks/index.md](../index.md)
+- Modify: [CHANGELOG.md](../../../CHANGELOG.md) (via `/changelog`), [README.md](../../../README.md),
+  [README.en.md](../../../README.en.md), [docs/features/mobile.md](../../../docs/features/mobile.md),
+  [_tasks/index.md](../../index.md)
 
 - [ ] **Step 1:** Run `/changelog`. The `### Pokyny k aktualizácii` block says: no migration,
   no env var, no image change.
-- [ ] **Step 2:** Add `/m/miesta` to both READMEs and to [docs/features/mobile.md](../../docs/features/mobile.md) (the user
+- [ ] **Step 2:** Add `/m/miesta` to both READMEs and to [docs/features/mobile.md](../../../docs/features/mobile.md) (the user
   flow and the files; the save order and the failure rules of Task 2 and Task 3).
 - [ ] **Step 3:** Run `npm run test:backend`, then the full integration suite
   `npm run test:integration`. Expected: all pass. Run `/verify`.
@@ -372,12 +372,12 @@ it('disables delete for a place that a trip uses', async () => {
 ### After the merge to `main`
 
 Use the `mockup` skill, "Steps: after the merge to `main`": remove the `open` boxes and the
-"Návrh (task 96)" tags in [docs/mockups/mobil.html](../../docs/mockups/mobil.html), match the frames to the merged labels,
-commit, and publish `mobil.html`. `bash` [scripts/mockup-drift.sh](../../scripts/mockup-drift.sh) must not list Mobil.
+"Návrh (task 96)" tags in [docs/mockups/mobil.html](../../../docs/mockups/mobil.html), match the frames to the merged labels,
+commit, and publish `mobil.html`. `bash` [scripts/mockup-drift.sh](../../../scripts/mockup-drift.sh) must not list Mobil.
 
 ## Not tested
 
 - Read-only mode: no spec can start the server in read-only mode (the only trigger is an
-  unknown migration at start, [src-tauri/web/src/main.rs](../../src-tauri/web/src/main.rs)).
+  unknown migration at start, [src-tauri/web/src/main.rs](../../../src-tauri/web/src/main.rs)).
   The PC places spec has the same gap.
 - A drag of the pin: the tap test covers the same `onpick` path and the same `manual` source.

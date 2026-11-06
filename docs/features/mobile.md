@@ -373,5 +373,5 @@ with the GPS route of a Fuelio trip, so a failed route save keeps the trip.
 - [route-maps.md](./route-maps.md) -- stored routes, the route provider
 - ADR-008 (backend-only calculations), ADR-032 (a human places a place), ADR-034, ADR-054 (whole-km distance)
 - [BIZ-031](../../DECISIONS.md#biz-031-a-new-trip-preselects-a-place-only-within-300-m-and-a-new-place-is-always-offered), [BIZ-032](../../DECISIONS.md#biz-032-the-phone-manual-entry-fills-the-origin-the-start-and-the-km)
-- [_tasks/96-mobile-places/](../../_tasks/96-mobile-places/01-task.md) -- planning of the places editor
+- [_tasks/_done/96-mobile-places/](../../_tasks/_done/96-mobile-places/01-task.md) -- planning of the places editor
 - [_tasks/93-mobile-ui/](../../_tasks/93-mobile-ui/01-task.md) -- planning
