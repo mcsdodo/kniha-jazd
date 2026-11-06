@@ -203,10 +203,10 @@ header.page p { margin: 4px 0; color: var(--page-muted); max-width: 80ch; }
   <p>The source is <code>docs/mockups/mapa.html</code> in the repo. Its git history shows when the page changed.</p>
   <p>An orange dashed box with the tag "Návrh (task NN)" marks a proposal that is not built yet. This page has no open proposal.</p>
   <div class="pagenav" id="pagenav">
-    <a href="https://claude.ai/artifact/PCbcTRe6EybiezMCqH8rm2" data-file="jazdy.html">Jazdy</a><a href="https://claude.ai/artifact/Nvtcv8rofbFtVG4BNbAoMr" data-file="doklady.html">Doklady</a><a href="https://claude.ai/artifact/RgyA56LvfFjRHpgMcYG3ku" data-file="fuelio.html">Fuelio</a>
-    <a href="index.html" data-local-only style="display:none">All mockups</a>
+    <a href="jazdy.html">Jazdy</a><a href="doklady.html">Doklady</a><a href="fuelio.html">Fuelio</a>
+    <a href="index.html">All mockups</a>
     <span class="here">Mapa</span>
-    <a href="https://claude.ai/artifact/T2jiZ3ZLGs9s1F89UZP9eE" data-file="miesta.html">Miesta</a><a href="https://claude.ai/artifact/F5fCz7wgrunXAyQ5rRw1AJ" data-file="nastavenia.html">Nastavenia</a><a href="https://claude.ai/artifact/TyYTKii3cU4ryvN98giUGW" data-file="mobil.html">Mobil</a>
+    <a href="miesta.html">Miesta</a><a href="nastavenia.html">Nastavenia</a><a href="mobil.html">Mobil</a>
     <button class="themebtn" type="button" id="themebtn">Dark / light</button>
   </div>
 </header>
@@ -681,19 +681,6 @@ header.page p { margin: 4px 0; color: var(--page-muted); max-width: 80ch; }
   document.getElementById("themebtn").addEventListener("click", function () {
     root.setAttribute("data-theme", root.getAttribute("data-theme") === "dark" ? "light" : "dark");
   });
-})();
-</script>
-<script>
-(function () {
-  /* Outside claude.ai (a local file, GitHub Pages, a raw-HTML proxy) the page nav uses the
-     repo files next to this one; on claude.ai it keeps the artifact links. */
-  var h = location.hostname;
-  if (location.protocol === "file:" || /github\.io$|githack\.com$/.test(h)) {
-    var links = document.querySelectorAll("a[data-file]");
-    for (var i = 0; i < links.length; i++) links[i].href = links[i].getAttribute("data-file");
-    var local = document.querySelectorAll("a[data-local-only]");
-    for (var j = 0; j < local.length; j++) local[j].style.display = "";
-  }
 })();
 </script>
 </body>

@@ -2,8 +2,11 @@
 
 Each page of the app has a mockup: one HTML file in this folder that draws the screens of the
 page, one frame per state, with English notes under each frame. The files are the source.
-Each file is also published as a private claude.ai artifact, where the owner reviews it and
-sends comments to Claude.
+All the files are also published as one private claude.ai artifact, with `index.html` as its
+start page. There the owner reviews them and sends comments to Claude. The artifact is per owner: a new
+artifact is private to the claude.ai account that publishes it, so each person who works on the
+repo publishes their own. Its UUID is in the gitignored `.claude/settings.local.json`, not in the
+repo ([ADR-064](../../DECISIONS.md#adr-064-one-mockups-artifact-per-owner-its-uuid-outside-the-repo-amends-adr-063)).
 
 A change that the user will see goes into the mockup file first, marked "Návrh (task NN)",
 before the plan and the code. The steps are in the `mockup` skill
@@ -12,30 +15,35 @@ before the plan and the code. The steps are in the `mockup` skill
 
 ## View a mockup
 
-- **Owner:** open the artifact link in the table.
+- **Owner:** open your own artifact. The `mockup` skill shows its UUID, and publishes a new one
+  if the checkout has none.
 - **Anybody else:** GitHub Pages serves this folder from `main`. Start at the index,
   [mockups/](https://mcsdodo.github.io/kniha-jazd/mockups/) ([index.html](index.html)), which
-  links to each page. A file in a clone also opens in a browser. In both cases the page nav
-  links to the files next to it, and "All mockups" goes back to the index.
+  links to each page. A file in a clone also opens in a browser. In each viewer, the artifact
+  too, the page nav links to the files next to it, and "All mockups" goes back to the index.
 - Pages serves `docs/` as plain files, without Jekyll ([docs/.nojekyll](../.nojekyll)).
+- **Local server:** use it only if the owner asks for it, or if the artifact does not open
+  for the owner. Run `python3 -m http.server 8090 --bind 0.0.0.0 --directory docs/mockups`
+  from the repo root, then open `http://<tailscale address of the host>:8090/`. The server
+  serves the working tree, so it also shows a change that is not committed.
 
 ## Registry
 
 [scripts/mockup-drift.sh](../../scripts/mockup-drift.sh) reads this table. For each row it lists
 the commits that changed a source path after the last commit that changed the mockup file.
-Keep one row per line, and keep the markers. Use the UUID for the `claude-artifacts` tools:
-they refuse the short id of the link.
+Keep one row per line, and keep the markers. The table has no artifact link: the artifact
+belongs to its owner.
 
 <!-- registry:start -->
-| Page | File | Artifact | UUID | Source paths |
-|---|---|---|---|---|
-| Mobil (`/m`) | [mobil.html](mobil.html) | [Kniha jázd na mobile](https://claude.ai/artifact/TyYTKii3cU4ryvN98giUGW) | `da72a3f1-189b-4dcc-9329-2a83cebceb07` | `src/routes/m src/lib/components/mobile` |
-| Jazdy (`/`, header) | [jazdy.html](jazdy.html) | [Kniha jázd PC: Jazdy](https://claude.ai/artifact/PCbcTRe6EybiezMCqH8rm2) | `b3c78fdc-d50c-4ab8-ad08-d429b649a9b5` | `src/routes/+page.svelte src/routes/+layout.svelte src/lib/components/TripGrid.svelte src/lib/components/TripRow.svelte src/lib/components/ColumnVisibilityDropdown.svelte src/lib/components/CompensationBanner.svelte src/lib/components/OdometerCascadeModal.svelte src/lib/components/DatetimeInput.svelte src/lib/components/Autocomplete.svelte src/lib/components/SegmentedToggle.svelte src/lib/components/InvoiceIndicator.svelte src/lib/components/Toast.svelte src/lib/components/ConfirmModal.svelte src/lib/components/GlobalConfirm.svelte src/lib/haReadings.ts src-tauri/core/src/export.rs` |
-| Doklady (`/doklady`) | [doklady.html](doklady.html) | [Kniha jázd PC: Doklady](https://claude.ai/artifact/Nvtcv8rofbFtVG4BNbAoMr) | `b19624a6-101f-4676-87e7-99f7716a8fd9` | `src/routes/doklady src/lib/components/TripSelectorModal.svelte` |
-| Fuelio (`/fuelio`) | [fuelio.html](fuelio.html) | [Kniha jázd PC: Fuelio](https://claude.ai/artifact/RgyA56LvfFjRHpgMcYG3ku) | `c7eff145-f9e3-43c5-ba4a-0afe5d028be2` | `src/routes/fuelio src/lib/components/FuelioAddModal.svelte src/lib/components/FuelioOverwriteModal.svelte src/lib/components/OdometerCascadeModal.svelte` |
-| Mapa (`/mapa`) | [mapa.html](mapa.html) | [Kniha jázd PC: Mapa](https://claude.ai/artifact/F3fXHbFEaERHHcKC4tr215) | `71bf2b3d-da4d-4b78-89e6-5588312efea0` | `src/routes/mapa src/lib/components/PlaceModal.svelte src/lib/components/OdometerCascadeModal.svelte` |
-| Miesta (`/miesta`) | [miesta.html](miesta.html) | [Kniha jázd PC: Miesta](https://claude.ai/artifact/T2jiZ3ZLGs9s1F89UZP9eE) | `d2cbac82-1a44-412b-82e7-5b3f49ce6c5f` | `src/routes/miesta src/lib/components/PlaceModal.svelte` |
-| Nastavenia (`/settings`) | [nastavenia.html](nastavenia.html) | [Kniha jázd PC: Nastavenia](https://claude.ai/artifact/F5fCz7wgrunXAyQ5rRw1AJ) | `72067645-50f0-4bec-97b9-cbeaff7e902b` | `src/routes/settings src/lib/components/VehicleModal.svelte` |
+| Page | File | Source paths |
+|---|---|---|
+| Mobil (`/m`) | [mobil.html](mobil.html) | `src/routes/m src/lib/components/mobile` |
+| Jazdy (`/`, header) | [jazdy.html](jazdy.html) | `src/routes/+page.svelte src/routes/+layout.svelte src/lib/components/TripGrid.svelte src/lib/components/TripRow.svelte src/lib/components/ColumnVisibilityDropdown.svelte src/lib/components/CompensationBanner.svelte src/lib/components/OdometerCascadeModal.svelte src/lib/components/DatetimeInput.svelte src/lib/components/Autocomplete.svelte src/lib/components/SegmentedToggle.svelte src/lib/components/InvoiceIndicator.svelte src/lib/components/Toast.svelte src/lib/components/ConfirmModal.svelte src/lib/components/GlobalConfirm.svelte src/lib/haReadings.ts src-tauri/core/src/export.rs` |
+| Doklady (`/doklady`) | [doklady.html](doklady.html) | `src/routes/doklady src/lib/components/TripSelectorModal.svelte` |
+| Fuelio (`/fuelio`) | [fuelio.html](fuelio.html) | `src/routes/fuelio src/lib/components/FuelioAddModal.svelte src/lib/components/FuelioOverwriteModal.svelte src/lib/components/OdometerCascadeModal.svelte` |
+| Mapa (`/mapa`) | [mapa.html](mapa.html) | `src/routes/mapa src/lib/components/PlaceModal.svelte src/lib/components/OdometerCascadeModal.svelte` |
+| Miesta (`/miesta`) | [miesta.html](miesta.html) | `src/routes/miesta src/lib/components/PlaceModal.svelte` |
+| Nastavenia (`/settings`) | [nastavenia.html](nastavenia.html) | `src/routes/settings src/lib/components/VehicleModal.svelte` |
 <!-- registry:end -->
 
 ## What a mockup holds

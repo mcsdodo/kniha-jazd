@@ -6,6 +6,30 @@ Architecture Decision Records (ADRs) and business logic decisions. **Newest firs
 
 ## 2026-11-06: UI Mockups (Task 95)
 
+### ADR-064: One mockups artifact per owner, its UUID outside the repo (amends ADR-063)
+
+**Context:** [ADR-063](#adr-063-a-visible-ui-change-goes-into-the-page-mockup-first) published each page file to its own private claude.ai artifact. The repo is public, but it held the 7 artifact links in the registry table and in the nav bar of each page file. Another person who clones the repo cannot open these links: a new artifact is private to the person who publishes it. A script in each file also rewrote the nav links to the local files outside claude.ai.
+
+**Options considered:**
+1. One artifact per page, with a gitignored map from each file to its UUID.
+2. One artifact for the whole [docs/mockups/](docs/mockups/README.md) folder per owner, with its UUID in `.claude/settings.local.json`.
+3. No artifact. The owner reviews on a local server or on GitHub Pages.
+
+**Decision:** Option 2.
+- One private artifact holds all the files of the folder, with `index.html` as its start page. The nav bar uses plain relative links (`mobil.html`). The rewrite script is removed.
+- The UUID of the artifact is in the env var `KNIHA_JAZD_MOCKUPS_ARTIFACT` in the gitignored `.claude/settings.local.json`. The `mockup` skill reads it from that file. If the key is not there, the skill publishes a new artifact from the folder and adds the key.
+- A publish sends only the changed files. The artifact keeps the other files.
+- The registry table has no artifact column. No repo file holds an artifact link or UUID.
+- A local server (`python3 -m http.server` on `docs/mockups/`) is only for a user who asks for it, or for whom the artifact does not open.
+
+**Reasoning:**
+- A test artifact on 2026-11-06 showed that a link click opens the next file in the claude.ai viewer. A comment sent to Claude reached the session, and its anchor named the file. So one artifact keeps the review and the comments of ADR-063.
+- One UUID per owner fits in one env var. Option 1 needs 7 values and a new key for each new page.
+- Option 3 loses the comments that reach the session. On 2026-11-06 the LAN address of the dev VM did not open from the owner's PC; only Tailscale did.
+- Relative links work the same in the artifact, on GitHub Pages and from a clone.
+
+**Consequences:** The artifact is per owner (the claude.ai account), but the UUID is stored per checkout. On a second machine, the owner copies the env var line, or the skill publishes a second artifact. The 7 per-page artifacts of ADR-063 are no longer used. The owner can delete them in claude.ai. The env var loads at the next session start, so the skill reads the file and not the environment.
+
 ### ADR-063: A visible UI change goes into the page mockup first
 
 **Context:** The phone pages (task 93), the route alternatives (task 94) and the odometer on the phone trip card (commit `5247a3b`) were drawn in a claude.ai artifact before the code. The user reviewed the frames, and the code followed them. The PC pages had no mockups, and no skill made the mockup a step of a task.

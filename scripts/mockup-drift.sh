@@ -18,11 +18,11 @@ if [ ! -f "$registry" ]; then
     exit 1
 fi
 
-# Registry rows: | Page | File | Artifact | UUID | Source paths |
+# Registry rows: | Page | File | Source paths |
 # Only rows between the markers count, so other tables in the file do not.
 awk '/<!-- registry:start -->/{f=1; next} /<!-- registry:end -->/{f=0} f' "$registry" |
     grep -E '^\|' | grep -vE '^\|[[:space:]]*(Page|-)' |
-    while IFS='|' read -r _ page file _ _ paths _; do
+    while IFS='|' read -r _ page file paths _; do
         page="$(echo "$page" | xargs)"
         # The file cell is a Markdown link: [name.html](name.html). Take the target.
         file="$(echo "$file" | sed -E 's/.*\]\(([^)]*)\).*/\1/' | xargs)"

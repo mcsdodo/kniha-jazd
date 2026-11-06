@@ -386,7 +386,7 @@ Use skills in `.claude/skills/` for workflows:
 | `/verify` | Before claiming "done" | Run tests, check git status, verify changelog |
 | `/move-to-done` | Task is complete or abandoned | Move `_tasks/{NN}-*` to `_tasks/_done/`, repoint its links, update the index |
 | `/release` | Publishing new version | Check upgrade notes, bump version, update changelog, tag, push - CI promotes the tested image |
-| `/mockup` | Before planning a visible UI change; after its merge | Draw the change in the page's claude.ai mockup, get approval, then mark it as built |
+| `/mockup` | Before planning a visible UI change; after its merge | Draw the change in the page's mockup file, publish it for review, get approval, then mark it as built |
 | `/plan-review` | Before coding | Review plan for completeness, feasibility, clarity |
 | `/code-review` | After implementation | Review code quality, run tests, iterate until passing |
 | `/test-review` | After feature complete | Check test coverage, add missing tests |
@@ -403,8 +403,11 @@ Keep `README.md` (Slovak) and `README.en.md` in sync with feature changes.
 ### UI Mockups
 
 Each page has a mockup file in [docs/mockups/](docs/mockups/README.md) that draws its screens,
-one frame per state. The file is the source; the private claude.ai artifact of the page is its
-published view for review. Change the file, then publish it; never edit the artifact directly.
+one frame per state. The file is the source. One private claude.ai artifact per owner holds the
+whole folder and is its published view for review: an artifact is private to the claude.ai
+account that publishes it. Its UUID is in the gitignored `.claude/settings.local.json`
+(env `KNIHA_JAZD_MOCKUPS_ARTIFACT`), never in the repo (ADR-064).
+Change the file, then publish it; never edit the artifact directly.
 A visible change goes into the mockup first, marked "Návrh (task NN)" (the `/mockup` skill).
 `/verify` lists the commits that changed a screen after its mockup file (`scripts/mockup-drift.sh`).
 The mockup notes own the UI behaviour; the feature docs own the technical part.
