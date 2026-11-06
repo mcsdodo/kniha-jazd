@@ -162,7 +162,7 @@ Task 96. The page has no new backend command. It uses the commands of the PC Mie
    - **Uložiť miesto**;
    - **Zmazať**, only for an existing place.
 6. **Zmazať** asks a confirm question first. If a trip uses the place, the button is
-   disabled and the note says "Miesto je použité {n}-krát."
+   disabled and the note says "Miesto je použité {count}-krát."
 7. In read-only mode, the screen has no save and no delete, and the map takes no input.
 
 The save order of an existing place:
