@@ -551,6 +551,11 @@ const en = {
 			missing: 'Missing in logbook',
 			ignored: 'Ignored',
 		},
+		join: {
+			next: 'Join with the next drive',
+			nextHint: 'Joins this drive with the next missing drive (the row above). The Add button then writes them as one trip.',
+			split: 'Split the joined drives',
+		},
 		ignore: {
 			button: 'Ignore: the drive does not belong in the logbook',
 			undo: 'Un-ignore',

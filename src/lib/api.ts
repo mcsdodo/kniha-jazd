@@ -744,7 +744,8 @@ export interface FuelioMergeRules {
 export async function getFuelioCrosscheck(
 	vehicleId: string,
 	year: number,
-	merge: FuelioMergeRules
+	merge: FuelioMergeRules,
+	joins: string[] = []
 ): Promise<FuelioReport> {
 	return await apiCall('get_fuelio_crosscheck', {
 		vehicleId,
@@ -752,6 +753,7 @@ export async function getFuelioCrosscheck(
 		maxGapMin: merge.maxGapMin ?? undefined,
 		maxJumpKm: merge.maxJumpKm ?? undefined,
 		looseMinKmPct: merge.looseMinKmPct ?? undefined,
+		joins,
 	});
 }
 

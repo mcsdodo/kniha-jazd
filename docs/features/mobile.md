@@ -72,7 +72,9 @@ estimate of a manual trip, and the origin default of a manual trip.
 4. The status line shows the sync: "Synchronizujem s Dropbox...", then
    "Synchronizované o HH:MM". If the sync fails, the status line shows the error, and
    the local list stays.
-5. Tap **Pridať >** on a drive.
+5. Optional: tap **Spojiť s nasledujúcou** under a drive to join it with the next
+   missing drive. **Rozdeliť spojené jazdy** undoes it. A reload removes the join.
+6. Tap **Pridať >** on a drive.
 
 ### 5. Add from Fuelio
 

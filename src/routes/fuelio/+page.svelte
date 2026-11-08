@@ -33,6 +33,10 @@
 	// A loose match needs at least this % of the trip km. Lower it to see
 	// short fragments next to their trip; empty = the backend default.
 	let looseMinKmPct = $state<number | null>(null);
+	// The manual joins (BIZ-066): a row whose last drive is here joins the next
+	// row. The backend joins and says which rows can join. Not saved: a join
+	// is a step before "Pridať".
+	let joins = $state<string[]>([]);
 	// Filter pills: a pill that is not selected does not filter. State pills
 	// combine with OR; the groups with AND. With no state pill selected the page
 	// shows matched and missing rows: an ignored row needs its own pill.
@@ -135,7 +139,7 @@
 				maxJumpKm: mergeJumpKm,
 				looseMinKmPct
 			}));
-			const r = await api.getFuelioCrosscheck(vehicleId, year, merge);
+			const r = await api.getFuelioCrosscheck(vehicleId, year, merge, untrack(() => [...joins]));
 			if (seq === loadSeq) report = r;
 		} catch (e) {
 			if (seq === loadSeq) toast.error(String(e));
@@ -212,6 +216,25 @@
 		}
 	}
 
+	// After the new report, the map shows the changed row.
+	async function changeJoins(next: string[], driveId: string) {
+		const vehicle = $activeVehicleStore;
+		if (!vehicle) return;
+		joins = next;
+		await load(vehicle.id, $selectedYearStore);
+		const row = report?.rows.find((r) => r.driveIds.includes(driveId));
+		if (row && rows.includes(row)) selectRow(row);
+	}
+
+	function joinNext(r: FuelioRow) {
+		const last = r.driveIds[r.driveIds.length - 1];
+		changeJoins([...joins, last], last);
+	}
+
+	function split(r: FuelioRow) {
+		changeJoins(joins.filter((id) => !r.driveIds.includes(id)), r.driveIds[0]);
+	}
+
 	onDestroy(() => {
 		map?.remove();
 		map = null;
@@ -281,11 +304,15 @@
 	}
 </script>
 
-{#snippet icon(key: RowState | FuelioFlag | 'unignore', size: number)}
+{#snippet icon(key: RowState | FuelioFlag | 'unignore' | 'join' | 'split', size: number)}
 	{#if key === 'ignored'}
 		<svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9.88 9.88a3 3 0 1 0 4.24 4.24"/><path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 11 8 11 8a13.16 13.16 0 0 1-1.67 2.68"/><path d="M6.61 6.61A13.526 13.526 0 0 0 1 12s4 8 11 8a9.74 9.74 0 0 0 5.39-1.61"/><line x1="2" x2="22" y1="2" y2="22"/></svg>
 	{:else if key === 'unignore'}
 		<svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
+	{:else if key === 'join'}
+		<svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 17H7A5 5 0 0 1 7 7h2"/><path d="M15 7h2a5 5 0 1 1 0 10h-2"/><line x1="8" x2="16" y1="12" y2="12"/></svg>
+	{:else if key === 'split'}
+		<svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 17H7A5 5 0 0 1 7 7"/><path d="M15 7h2a5 5 0 0 1 4 8"/><line x1="8" x2="12" y1="12" y2="12"/><line x1="2" x2="22" y1="2" y2="22"/></svg>
 	{:else if key === 'matched'}
 		<svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></svg>
 	{:else if key === 'missing'}
@@ -554,6 +581,30 @@
 												}}
 												data-testid="fuelio-add">{$LL.fuelio.add.button()}</button
 											>
+											{#if r.canJoinNext}
+												<button
+													class="icon-btn"
+													title={$LL.fuelio.join.nextHint()}
+													aria-label={$LL.fuelio.join.next()}
+													onclick={(e) => {
+														e.stopPropagation();
+														joinNext(r);
+													}}
+													data-testid="fuelio-join-next">{@render icon('join', 16)}</button
+												>
+											{/if}
+											{#if r.joined}
+												<button
+													class="icon-btn"
+													title={$LL.fuelio.join.split()}
+													aria-label={$LL.fuelio.join.split()}
+													onclick={(e) => {
+														e.stopPropagation();
+														split(r);
+													}}
+													data-testid="fuelio-split">{@render icon('split', 16)}</button
+												>
+											{/if}
 											<button
 												class="icon-btn"
 												disabled={ignoring}

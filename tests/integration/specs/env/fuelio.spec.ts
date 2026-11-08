@@ -120,6 +120,65 @@ describe('Fuelio page (Dropbox configured)', () => {
     await waitForRows(2, 'joined drive and the drive of the next day');
   });
 
+  /** Click the last of the elements: the rows are newest first, so the oldest. */
+  async function clickLast(testId: string): Promise<void> {
+    const all = await $$(`[data-testid="${testId}"]`).getElements();
+    await all[all.length - 1].click();
+  }
+
+  it('joins two missing rows, splits them, and adds the joined row as one trip', async () => {
+    await seedPlaces();
+    await setMinKm(0);
+    await waitForRows(3, 'no km filter');
+
+    await clickLast('fuelio-join-next');
+    await waitForRows(2, 'after the join');
+    expect(await $('[data-testid="fuelio-drive-count"]').getText()).toBe('(drives: 2)');
+
+    await $('[data-testid="fuelio-split"]').click();
+    await waitForRows(3, 'after the split');
+
+    await clickLast('fuelio-join-next');
+    await waitForRows(2, 'after the second join');
+    await clickLast('fuelio-add');
+    await $('[data-testid="fuelio-add-modal"]').waitForDisplayed({ timeout: 5000 });
+    await $('[data-testid="fuelio-add-destination-new-name"]').waitForDisplayed({ timeout: 5000 });
+    await $('[data-testid="fuelio-add-destination-new-name"]').setValue('Joined end');
+    await $('[data-testid="fuelio-add-purpose"]').setValue('joined');
+    await $('[data-testid="fuelio-add-continue"]').click();
+
+    await browser.waitUntil(async () => (await statusCount('matched')) === 1, {
+      timeout: 5000,
+      timeoutMsg: 'the joined drives are not one matched row',
+    });
+    expect(await $('[data-testid="fuelio-drive-count"]').getText()).toBe('(drives: 2)');
+    const grid = await getTripGridData(vehicleId, YEAR);
+    expect(grid.trips.length).toBe(1);
+    expect(grid.trips[0].distanceKm).toBe(25);
+    expect(grid.trips[0].startDatetime.slice(0, 16)).toBe(`${YEAR}-01-10T10:00`);
+    expect(grid.trips[0].endDatetime?.slice(11, 16)).toBe('12:02');
+    expect(await $('.toast-error').isExisting()).toBe(false);
+  });
+
+  it('joins and splits two missing drives on the phone page', async () => {
+    await rpc('set_fuelio_filters', {
+      filters: { minKm: 0, mergeGapMin: 60, mergeJumpKm: 2, looseMinKmPct: 50 },
+    });
+    await browser.url('/m/fuelio');
+    const phoneRows = async () => (await $$('[data-testid="m-fuelio-row"]').getElements()).length;
+    const waitForPhoneRows = async (count: number) =>
+      browser.waitUntil(async () => (await phoneRows()) === count, {
+        timeout: 10000,
+        timeoutMsg: `expected ${count} phone rows, got ${await phoneRows()}`,
+      });
+    await waitForPhoneRows(3);
+
+    await clickLast('m-fuelio-join-next');
+    await waitForPhoneRows(2);
+    await $('[data-testid="m-fuelio-split"]').click();
+    await waitForPhoneRows(3);
+  });
+
   it('remembers the filters after a reload', async () => {
     await waitForRows(2, 'default filters');
     for (const [sel, value] of [

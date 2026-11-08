@@ -687,6 +687,10 @@ export interface FuelioRow {
 	flags: FuelioFlag[];
 	/** A missing row whose drives the user ignored (hidden unless the filter asks). */
 	ignored: boolean;
+	/** The backend allows a join of this row with the next one. */
+	canJoinNext: boolean;
+	/** The user joined this row from several rows. */
+	joined: boolean;
 }
 
 export interface FuelioReport {

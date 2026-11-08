@@ -551,6 +551,11 @@ const sk = {
 			missing: 'Chýba v knihe',
 			ignored: 'Ignorované',
 		},
+		join: {
+			next: 'Spojiť s nasledujúcou',
+			nextHint: 'Spojí túto jazdu s nasledujúcou chýbajúcou jazdou (riadok vyššie). Tlačidlo Pridať ich potom zapíše ako jednu jazdu.',
+			split: 'Rozdeliť spojené jazdy',
+		},
 		ignore: {
 			button: 'Ignorovať: jazda nepatrí do knihy jázd',
 			undo: 'Zrušiť ignorovanie',

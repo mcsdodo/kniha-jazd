@@ -32,6 +32,10 @@
    and the largest distance (2 km by default) from the end of a drive to the start of
    the next. A change loads the report again. Raise them to join a drive that Fuelio
    split at a long stop, then "Pridať" adds it as one trip.
+   For one case, the chain button **Spojiť s nasledujúcou** on a missing row joins it
+   with the next missing row in time, and "Pridať" adds the joined row as one trip. The
+   crossed chain **Rozdeliť spojené jazdy** undoes it. A join is not saved: a reload
+   removes it. The phone page has the same two actions.
    One more field sets the share of the trip km that a loose match needs (50% by
    default, `0` = no minimum). A change loads the report again. Lower it to see short
    fragments next to their trip.
@@ -133,7 +137,16 @@ place" and not "never".
 `looseMinKmPct` (default 50) is the loose km share of pass 3; a negative value is an
 error too. The
 passes 1 and 2 use the gap or 90 min, whichever is longer, so a small value never
-splits a trip. A round trip keeps its own longer stop rule.
+splits a trip. A trip with an end time also allows any stop up to its own duration,
+so a joined row that the user added as one trip shows as one row. A round trip without
+an end time keeps its own longer stop rule.
+
+**Manual joins ([BIZ-066](../../DECISIONS.md#biz-066-a-manual-join-of-missing-rows-is-a-page-step-and-the-backend-decides-what-can-join)).** `get_fuelio_crosscheck` takes `joins`: drive ids, where a row
+whose last drive is in the list joins the next row. `join_rows` runs after the ignored
+rows are marked, and it sets `joined` and `canJoinNext` on the rows. Two rows can join
+only if both are missing and no logbook trip lies in the stop between them. An ignored
+row is skipped and stays a row of its own. The list stays on the page, so a reload
+removes the joins. The add commands do not change: they already take several drives.
 
 **Ignored rows.** The table `fuelio_ignored_drives (vehicle_id, drive_id)` holds the drives
 the user ignored. Matching does not read it: the ignored drives stay in the input, so a

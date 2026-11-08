@@ -25,6 +25,8 @@
 	let loadError = $state<string | null>(null);
 	let rows = $state<FuelioRow[] | null>(null);
 	let purposeSuggestions = $state<string[]>([]);
+	// The manual joins (BIZ-066), as on /fuelio. Not saved.
+	let joins = $state<string[]>([]);
 
 	// The add form for one row.
 	let adding = $state<FuelioRow | null>(null);
@@ -86,11 +88,16 @@
 		loadError = null;
 		try {
 			const filters = await api.getFuelioFilters().catch(() => null);
-			const r = await api.getFuelioCrosscheck(vehicleId, year, {
-				maxGapMin: filters?.mergeGapMin ?? null,
-				maxJumpKm: filters?.mergeJumpKm ?? null,
-				looseMinKmPct: filters?.looseMinKmPct ?? null
-			});
+			const r = await api.getFuelioCrosscheck(
+				vehicleId,
+				year,
+				{
+					maxGapMin: filters?.mergeGapMin ?? null,
+					maxJumpKm: filters?.mergeJumpKm ?? null,
+					looseMinKmPct: filters?.looseMinKmPct ?? null
+				},
+				[...joins]
+			);
 			// The backend sorts newest first.
 			// The saved min-km filter of the PC page hides short fragments here
 			// too. Display filtering only, the same rule as /fuelio.
@@ -104,6 +111,11 @@
 		} finally {
 			if (seq === loadSeq) loading = false;
 		}
+	}
+
+	function changeJoins(next: string[]) {
+		joins = next;
+		if ($activeVehicleStore) load($activeVehicleStore.id);
 	}
 
 	async function openAdd(row: FuelioRow) {
@@ -312,6 +324,26 @@
 							</span>
 							<span class="add">{$LL.mobile.add.addButton()} &gt;</span>
 						</button>
+						{#if row.canJoinNext || row.joined}
+							<div class="join-actions">
+								{#if row.canJoinNext}
+									<button
+										type="button"
+										class="link-btn"
+										onclick={() => changeJoins([...joins, row.driveIds[row.driveIds.length - 1]])}
+										data-testid="m-fuelio-join-next">{$LL.fuelio.join.next()}</button
+									>
+								{/if}
+								{#if row.joined}
+									<button
+										type="button"
+										class="link-btn"
+										onclick={() => changeJoins(joins.filter((id) => !row.driveIds.includes(id)))}
+										data-testid="m-fuelio-split">{$LL.fuelio.join.split()}</button
+									>
+								{/if}
+							</div>
+						{/if}
 					</li>
 				{/each}
 			</ul>
@@ -401,6 +433,20 @@
 		color: var(--text-primary);
 		font-size: 1rem;
 		text-align: left;
+		cursor: pointer;
+	}
+	.join-actions {
+		display: flex;
+		justify-content: flex-end;
+		gap: 1rem;
+	}
+	.link-btn {
+		min-height: 44px;
+		padding: 0 0.25rem;
+		border: none;
+		background: none;
+		color: var(--accent-primary);
+		font-size: 0.95rem;
 		cursor: pointer;
 	}
 	.line {

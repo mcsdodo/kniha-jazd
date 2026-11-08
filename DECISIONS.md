@@ -4,7 +4,24 @@ Architecture Decision Records (ADRs) and business logic decisions. **Newest firs
 
 ---
 
-## 2026-11-08: Fuelio Merge Distance
+## 2026-11-08: Fuelio Merge and Join
+
+### BIZ-066: A manual join of missing rows is a page step, and the backend decides what can join
+
+**Context:** The user wants to join missing rows in the Fuelio list and add them as one trip. The merge fields change the whole report, so they are too wide for one case.
+
+**Options considered:**
+1. Checkboxes and one button - harder on the phone, and it needs a check that no drive lies between the selected ones.
+2. A per-row action that joins the row with the next row in time - the rows are always neighbours.
+3. Joins saved in the database - a new table for a step that lasts until "Pridať".
+
+**Decision:** Option 2, not saved.
+- The page sends a list of drive ids with `get_fuelio_crosscheck`. A row whose last drive is in the list joins the next row. `join_rows` in the backend makes the joined row and sets `canJoinNext` and `joined` (ADR-008).
+- Two rows can join only if both are missing and no logbook trip lies in the stop between them. Such a trip would overlap the new trip.
+- An ignored row is skipped and stays a row of its own: the user said that it is not a logbook drive. A row that a page filter hides is included: the backend does not know the filters, and the km must be complete.
+- A trip with an end time allows a stop up to its own duration in the passes 1 and 2. Without this, a one-way trip added from a joined row splits into rows again.
+
+**Reasoning:** The add commands already take several drives, so a join needs no write path. A join only decides what the next "Pridať" sends, so a saved state has no use. On the production data of 2026, the new stop rule changed no row for either vehicle, at the default rules and at a gap of 140 min with 0 km.
 
 ### BIZ-065: A merge distance below 300 m counts as 300 m (amends [BIZ-027](#biz-027-fuelio-drives-are-the-reference-of-the-cross-check))
 

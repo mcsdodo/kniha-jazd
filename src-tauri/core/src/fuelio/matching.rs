@@ -14,6 +14,8 @@
 //!
 //! Only a chain that fits no trip, even loosely, is "missing".
 
+use std::collections::HashSet;
+
 use chrono::{Duration, NaiveDateTime};
 use serde::Serialize;
 
@@ -134,6 +136,10 @@ pub struct CrosscheckRow {
     /// A missing row whose drives the user all ignored. Matching never sets
     /// it: the command fills it from the database after `crosscheck`.
     pub ignored: bool,
+    /// The page offers to join this row with the next one. Set by [`join_rows`].
+    pub can_join_next: bool,
+    /// The user joined this row from several rows. Set by [`join_rows`].
+    pub joined: bool,
 }
 
 /// When two drives join one row, and how much of a trip a loose chain must
@@ -181,13 +187,16 @@ fn side_window(trip: &TripRef) -> (NaiveDateTime, NaiveDateTime) {
 /// Where the run of drives must end, and the longest stop inside it.
 fn run_rules(trip: &TripRef, rules: MergeRules) -> (Option<(f64, f64)>, i64) {
     let max_stop = rules.max_gap_min.max(MAX_STOP_IN_TRIP_MIN);
+    // A stop as long as the trip itself can be inside the trip: a joined row
+    // that the user added as one trip must show as one row afterwards (BIZ-066).
+    let span = trip.end.map(|end| minutes(trip.start, end));
     if !trip.round_trip {
-        return (trip.destination_point, max_stop);
+        return (trip.destination_point, span.map_or(max_stop, |s| s.max(max_stop)));
     }
-    let span = trip
-        .end
-        .map_or(MAX_ROUND_TRIP_STOP_H * 60, |end| minutes(trip.start, end));
-    (trip.origin_point, span.max(max_stop))
+    (
+        trip.origin_point,
+        span.unwrap_or(MAX_ROUND_TRIP_STOP_H * 60).max(max_stop),
+    )
 }
 
 /// The best run of unused drives for `trip`, as an index range.
@@ -298,6 +307,8 @@ fn gps_row(status: RowStatus, run: &[Drive]) -> CrosscheckRow {
         off_route_pct: None,
         flags: Vec::new(),
         ignored: false,
+        can_join_next: false,
+        joined: false,
     }
 }
 
@@ -443,6 +454,66 @@ pub fn crosscheck(trips: &[TripRef], drives: &[Drive], rules: MergeRules) -> Vec
     // Newest drive first: the page opens on the latest drives.
     rows.sort_by_key(|r| std::cmp::Reverse(r.gps_start));
     rows
+}
+
+/// Can `next`, the next row in time that is not ignored, join `row`? Both must
+/// be missing, and no logbook trip may lie in the stop between them.
+fn can_join(row: &CrosscheckRow, next: &CrosscheckRow, trips: &[TripRef]) -> bool {
+    let (Some(stop_start), Some(stop_end)) = (row.gps_end, next.gps_start) else {
+        return false;
+    };
+    row.status == RowStatus::Missing
+        && next.status == RowStatus::Missing
+        && !trips
+            .iter()
+            .any(|t| t.start < stop_end && t.end.unwrap_or(t.start) > stop_start)
+}
+
+/// Add `next` to the end of `row`. The sums are the same as in [`gps_row`].
+fn join_into(row: &mut CrosscheckRow, next: CrosscheckRow) {
+    let add = |a: Option<f64>, b: Option<f64>| Some(a.unwrap_or(0.0) + b.unwrap_or(0.0));
+    row.drive_ids.extend(next.drive_ids);
+    row.gps_end = next.gps_end;
+    row.gps_km = add(row.gps_km, next.gps_km);
+    row.fast_minutes = add(row.fast_minutes, next.fast_minutes);
+    row.max_kmh = Some(row.max_kmh.unwrap_or(0.0).max(next.max_kmh.unwrap_or(0.0)));
+    row.is_highway = row.gps_km.unwrap_or(0.0) >= HIGHWAY_MIN_KM
+        || row.fast_minutes.unwrap_or(0.0) >= HIGHWAY_MIN_FAST_MIN;
+    row.can_join_next = false;
+    row.joined = true;
+}
+
+/// Apply the manual joins of the page to the report (BIZ-066). `joins` holds
+/// drive ids: a row whose last drive is in it joins the next row. The function
+/// also says which rows can join. An ignored row is not a logbook drive: a join
+/// skips it, and it stays a row of its own. Call it after the ignored rows are
+/// marked. The rows stay newest first.
+pub fn join_rows(
+    mut rows: Vec<CrosscheckRow>,
+    trips: &[TripRef],
+    joins: &HashSet<String>,
+) -> Vec<CrosscheckRow> {
+    rows.sort_by_key(|r| r.gps_start);
+    let mut out: Vec<CrosscheckRow> = Vec::with_capacity(rows.len());
+    // The index in `out` of the latest row that is not ignored.
+    let mut last: Option<usize> = None;
+    for row in rows {
+        if row.ignored {
+            out.push(row);
+            continue;
+        }
+        if let Some(prev) = last.map(|i| &mut out[i]) {
+            prev.can_join_next = can_join(prev, &row, trips);
+            if prev.can_join_next && prev.drive_ids.last().is_some_and(|id| joins.contains(id)) {
+                join_into(prev, row);
+                continue;
+            }
+        }
+        out.push(row);
+        last = Some(out.len() - 1);
+    }
+    out.sort_by_key(|r| std::cmp::Reverse(r.gps_start));
+    out
 }
 
 #[cfg(test)]

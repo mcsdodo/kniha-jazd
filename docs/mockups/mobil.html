@@ -242,6 +242,7 @@ header.page p { margin: 0; color: var(--muted); max-width: 65ch; }
         <div class="note">Jazdy z Fuelio, ktoré nie sú v knihe jázd. Najnovšie hore.</div>
         <div class="card frow"><div class="top"><span>5.11.2026 &nbsp;16:08 - 16:24 &nbsp;5.0 km</span><span class="link">Pridať &gt;</span></div></div>
         <div class="card frow"><div class="top"><span>5.11.2026 &nbsp;15:27 - 15:39 &nbsp;5.4 km</span><span class="link">Pridať &gt;</span></div></div>
+        <div style="text-align:right"><span class="link">Spojiť s nasledujúcou</span></div>
         <div class="card frow"><div class="top"><span>5.11.2026 &nbsp;11:51 - 11:56 &nbsp;2.8 km</span><span class="link">Pridať &gt;</span></div></div>
         <div class="card frow"><div class="top"><span>4.11.2026 &nbsp;17:07 - 17:13 &nbsp;2.9 km</span><span class="link">Pridať &gt;</span></div></div>
         <div class="card frow"><div class="top"><span>2.11.2026 &nbsp;18:38 - 18:42 &nbsp;2.3 km</span><span class="link">Pridať &gt;</span></div></div>
@@ -250,6 +251,7 @@ header.page p { margin: 0; color: var(--muted); max-width: 65ch; }
     <ul class="ann">
       <li>The list shows the drives of the current year that have no trip in the book. Ignored drives and drives under the saved minimum km of the PC Fuelio page do not show.</li>
       <li>The local list shows at once. The Dropbox sync runs at the same time. It downloads only the new files, and the list reloads only if a file came.</li>
+      <li>"Spojiť s nasledujúcou" under a drive joins it with the next missing drive, as on the PC Fuelio page. The joined drive shows "Rozdeliť spojené jazdy" and "Pridať" writes it as one trip. A reload removes the join.</li>
       <li>After the sync, the status line shows "Synchronizované o 17:52". If the sync fails, the status line shows the error, and the local list stays.</li>
     </ul>
   </section>

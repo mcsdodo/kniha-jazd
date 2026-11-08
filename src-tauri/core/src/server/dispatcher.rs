@@ -1089,6 +1089,9 @@ pub fn dispatch_sync(command: &str, args: Value, state: &ServerState) -> Result<
                 max_gap_min: Option<i64>,
                 max_jump_km: Option<f64>,
                 loose_min_km_pct: Option<f64>,
+                // The manual joins of the page; absent = none.
+                #[serde(default)]
+                joins: std::collections::HashSet<String>,
             }
             let a: Args = parse_args(args)?;
             crate::commands_internal::require_fuelio_internal(fuelio_configured())?;
@@ -1104,6 +1107,7 @@ pub fn dispatch_sync(command: &str, args: Value, state: &ServerState) -> Result<
                 &a.vehicle_id,
                 a.year,
                 rules,
+                &a.joins,
             )?;
             Ok(serde_json::to_value(v).unwrap())
         }

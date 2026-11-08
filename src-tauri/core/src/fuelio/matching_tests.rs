@@ -1,5 +1,6 @@
 use super::*;
 use chrono::NaiveDate;
+use std::collections::HashSet;
 
 // Three places on one east-west line, about 74 km apart.
 const A: (f64, f64) = (48.0, 20.0);
@@ -718,4 +719,154 @@ fn a_gap_of_zero_keeps_every_missing_drive_alone() {
     ];
     assert_eq!(crosscheck(&[], &drives).len(), 1);
     assert_eq!(super::crosscheck(&[], &drives, rules(0, 2_000.0)).len(), 2);
+}
+
+// Manual joins from the page (2026-11-08): the user joins two missing rows and
+// adds them as one trip.
+
+fn join_ids(ids: &[&str]) -> HashSet<String> {
+    ids.iter().map(|s| s.to_string()).collect()
+}
+
+/// Three drives with stops over the default gap: three missing rows.
+fn three_drives() -> Vec<Drive> {
+    let mut d2 = drive("d2", at(28, 13, 0), 30, B, C, 20.0);
+    d2.fast_minutes = 6.0;
+    d2.max_kmh = 120.0;
+    let mut d1 = drive("d1", at(28, 10, 0), 50, A, B, 40.0);
+    d1.max_kmh = 90.0;
+    vec![d1, d2, drive("d3", at(28, 16, 0), 20, C, A, 10.0)]
+}
+
+/// A trip far from the drives, so it takes none of them.
+fn elsewhere(start: NaiveDateTime) -> TripRef {
+    trip("far", start, (49.0, 18.0), (49.1, 18.0), 10.0)
+}
+
+fn row_of<'a>(rows: &'a [CrosscheckRow], id: &str) -> &'a CrosscheckRow {
+    rows.iter().find(|r| r.drive_ids.iter().any(|d| d == id)).unwrap()
+}
+
+#[test]
+fn a_join_makes_one_row_with_the_sums_of_both_rows() {
+    let rows = join_rows(crosscheck(&[], &three_drives()), &[], &join_ids(&["d1"]));
+    assert_eq!(rows.len(), 2);
+    let joined = row_of(&rows, "d1");
+    assert_eq!(joined.drive_ids, vec!["d1", "d2"]);
+    assert_eq!(joined.status, RowStatus::Missing);
+    assert_eq!(joined.gps_start, Some(at(28, 10, 0)));
+    assert_eq!(joined.gps_end, Some(at(28, 13, 30)));
+    assert_eq!(joined.gps_km, Some(60.0));
+    assert_eq!(joined.fast_minutes, Some(6.0));
+    assert_eq!(joined.max_kmh, Some(120.0));
+    assert!(joined.is_highway);
+    assert!(joined.joined);
+    assert!(!row_of(&rows, "d3").joined);
+}
+
+#[test]
+fn rows_stay_newest_first_after_a_join() {
+    let rows = join_rows(crosscheck(&[], &three_drives()), &[], &join_ids(&["d2"]));
+    assert_eq!(rows[0].drive_ids, vec!["d2", "d3"]);
+    assert_eq!(rows[1].drive_ids, vec!["d1"]);
+}
+
+#[test]
+fn joins_chain_over_three_rows() {
+    let rows = join_rows(crosscheck(&[], &three_drives()), &[], &join_ids(&["d1", "d2"]));
+    assert_eq!(rows.len(), 1);
+    assert_eq!(rows[0].drive_ids, vec!["d1", "d2", "d3"]);
+    assert_eq!(rows[0].gps_km, Some(70.0));
+}
+
+#[test]
+fn every_missing_row_with_a_later_missing_row_can_join() {
+    let rows = join_rows(crosscheck(&[], &three_drives()), &[], &HashSet::new());
+    assert_eq!(rows.len(), 3);
+    assert!(row_of(&rows, "d1").can_join_next);
+    assert!(row_of(&rows, "d2").can_join_next);
+    assert!(!row_of(&rows, "d3").can_join_next);
+    assert!(rows.iter().all(|r| !r.joined));
+}
+
+#[test]
+fn a_joined_row_can_join_the_next_row_too() {
+    let rows = join_rows(crosscheck(&[], &three_drives()), &[], &join_ids(&["d1"]));
+    assert!(row_of(&rows, "d1").can_join_next);
+    assert!(!row_of(&rows, "d3").can_join_next);
+}
+
+#[test]
+fn a_join_does_not_cross_a_matched_row() {
+    let t = trip("t1", at(28, 13, 0), B, C, 20.0);
+    let rows = join_rows(crosscheck(&[t], &three_drives()), &[], &join_ids(&["d1"]));
+    assert_eq!(rows.len(), 3);
+    assert!(!row_of(&rows, "d1").can_join_next);
+    assert_eq!(row_of(&rows, "d1").drive_ids, vec!["d1"]);
+    assert!(!row_of(&rows, "d2").can_join_next);
+}
+
+#[test]
+fn a_join_does_not_cross_a_logbook_trip_without_gps() {
+    let t = elsewhere(at(28, 11, 30));
+    let trips = [t];
+    let rows = join_rows(crosscheck(&trips, &three_drives()), &trips, &join_ids(&["d1"]));
+    assert_eq!(rows.len(), 3);
+    assert!(!row_of(&rows, "d1").can_join_next);
+    assert!(row_of(&rows, "d2").can_join_next);
+}
+
+#[test]
+fn a_join_does_not_cross_a_trip_that_started_before_the_stop_and_ended_in_it() {
+    let mut t = elsewhere(at(28, 10, 30));
+    t.end = Some(at(28, 11, 30));
+    let trips = [t];
+    let rows = join_rows(crosscheck(&trips, &three_drives()), &trips, &HashSet::new());
+    assert!(!row_of(&rows, "d1").can_join_next);
+}
+
+#[test]
+fn a_join_skips_an_ignored_row() {
+    let mut rows = crosscheck(&[], &three_drives());
+    rows.iter_mut().find(|r| r.drive_ids == vec!["d2"]).unwrap().ignored = true;
+    let rows = join_rows(rows, &[], &join_ids(&["d1"]));
+    assert_eq!(rows.len(), 2);
+    assert_eq!(row_of(&rows, "d1").drive_ids, vec!["d1", "d3"]);
+    let ignored = row_of(&rows, "d2");
+    assert!(ignored.ignored);
+    assert!(!ignored.can_join_next);
+    assert!(!ignored.joined);
+}
+
+#[test]
+fn a_join_id_that_is_no_longer_in_the_report_changes_nothing() {
+    let rows = join_rows(crosscheck(&[], &three_drives()), &[], &join_ids(&["gone"]));
+    assert_eq!(rows.len(), 3);
+    assert!(rows.iter().all(|r| !r.joined));
+}
+
+// After "Pridať" of a joined row, the trip has the stop inside its own time.
+
+#[test]
+fn a_one_way_trip_joins_its_drives_over_a_stop_inside_its_own_time() {
+    let mut t = trip("t1", at(7, 8, 0), A, C, 148.0);
+    t.end = Some(at(7, 15, 0));
+    let drives = [
+        drive("d1", at(7, 8, 0), 60, A, B, 74.0),
+        drive("d2", at(7, 14, 0), 60, B, C, 74.0),
+    ];
+    let rows = crosscheck(&[t], &drives);
+    assert_eq!(rows.len(), 1);
+    assert_eq!(rows[0].drive_ids, vec!["d1", "d2"]);
+    assert!(rows[0].flags.is_empty());
+}
+
+#[test]
+fn a_one_way_trip_without_an_end_time_keeps_the_stop_limit() {
+    let t = trip("t1", at(7, 8, 0), A, C, 148.0);
+    let drives = [
+        drive("d1", at(7, 8, 0), 60, A, B, 74.0),
+        drive("d2", at(7, 14, 0), 60, B, C, 74.0),
+    ];
+    assert_eq!(crosscheck(&[t], &drives).len(), 2);
 }

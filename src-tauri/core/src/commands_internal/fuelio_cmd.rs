@@ -1,7 +1,7 @@
 //! Fuelio commands (Task 90): the cross-check, the map track, the Dropbox
 //! sync, and the writes (overwrite a trip, add a trip, ignore a drive).
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::path::Path;
 
 use chrono::{Datelike, NaiveDateTime, Timelike, Utc};
@@ -57,12 +57,14 @@ pub fn require_fuelio_internal(dropbox_configured: bool) -> Result<(), String> {
 
 /// The cross-check of one vehicle's trips of `year` against the Fuelio
 /// drives that start in `year`. `rules` decide when two drives join one row.
+/// `joins` are the manual joins of the page ([`fuelio::join_rows`]).
 pub fn get_fuelio_crosscheck_internal(
     db: &Database,
     data_dir: &Path,
     vehicle_id: &str,
     year: i32,
     rules: MergeRules,
+    joins: &HashSet<String>,
 ) -> Result<FuelioReport, String> {
     if rules.max_gap_min < 0 || !(rules.max_jump_m >= 0.0) || !(rules.loose_min_km_pct >= 0.0) {
         return Err("The merge gap, distance and loose km share must not be negative".into());
@@ -111,7 +113,11 @@ pub fn get_fuelio_crosscheck_internal(
         folder_exists: folder.is_dir(),
         drive_count: drives.len(),
         dropbox_configured: crate::fuelio::dropbox::DropboxConfig::from_env().is_some(),
-        rows: mark_ignored(fuelio::crosscheck(&refs, &drives, rules), &ignored),
+        rows: fuelio::join_rows(
+            mark_ignored(fuelio::crosscheck(&refs, &drives, rules), &ignored),
+            &refs,
+            joins,
+        ),
     })
 }
 
@@ -207,7 +213,7 @@ fn full_track(data_dir: &Path, drives: &[Drive]) -> Result<Vec<(f64, f64)>, Stri
 /// of its drives: a drive that a later sync adds to the chain shows it again.
 fn mark_ignored(
     mut rows: Vec<fuelio::CrosscheckRow>,
-    ignored: &std::collections::HashSet<String>,
+    ignored: &HashSet<String>,
 ) -> Vec<fuelio::CrosscheckRow> {
     for row in &mut rows {
         row.ignored = row.status == fuelio::RowStatus::Missing

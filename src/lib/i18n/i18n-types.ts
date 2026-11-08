@@ -1839,6 +1839,20 @@ type RootTranslation = {
 			 */
 			ignored: string
 		}
+		join: {
+			/**
+			 * S​p​o​j​i​ť​ ​s​ ​n​a​s​l​e​d​u​j​ú​c​o​u
+			 */
+			next: string
+			/**
+			 * S​p​o​j​í​ ​t​ú​t​o​ ​j​a​z​d​u​ ​s​ ​n​a​s​l​e​d​u​j​ú​c​o​u​ ​c​h​ý​b​a​j​ú​c​o​u​ ​j​a​z​d​o​u​ ​(​r​i​a​d​o​k​ ​v​y​š​š​i​e​)​.​ ​T​l​a​č​i​d​l​o​ ​P​r​i​d​a​ť​ ​i​c​h​ ​p​o​t​o​m​ ​z​a​p​í​š​e​ ​a​k​o​ ​j​e​d​n​u​ ​j​a​z​d​u​.
+			 */
+			nextHint: string
+			/**
+			 * R​o​z​d​e​l​i​ť​ ​s​p​o​j​e​n​é​ ​j​a​z​d​y
+			 */
+			split: string
+		}
 		ignore: {
 			/**
 			 * I​g​n​o​r​o​v​a​ť​:​ ​j​a​z​d​a​ ​n​e​p​a​t​r​í​ ​d​o​ ​k​n​i​h​y​ ​j​á​z​d
@@ -5351,6 +5365,20 @@ export type TranslationFunctions = {
 			 * Ignorované
 			 */
 			ignored: () => LocalizedString
+		}
+		join: {
+			/**
+			 * Spojiť s nasledujúcou
+			 */
+			next: () => LocalizedString
+			/**
+			 * Spojí túto jazdu s nasledujúcou chýbajúcou jazdou (riadok vyššie). Tlačidlo Pridať ich potom zapíše ako jednu jazdu.
+			 */
+			nextHint: () => LocalizedString
+			/**
+			 * Rozdeliť spojené jazdy
+			 */
+			split: () => LocalizedString
 		}
 		ignore: {
 			/**
