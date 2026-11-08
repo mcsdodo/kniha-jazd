@@ -58,6 +58,10 @@ const LOOSE_MIN_ON_ROUTE: f64 = 0.5;
 const LOOSE_ROUTE_M: f64 = 1_000.0;
 /// The default of [`MergeRules::loose_min_km_pct`].
 const LOOSE_MIN_KM_PCT: f64 = 50.0;
+/// Two drives this close count as one stop at any [`MergeRules::max_jump_m`].
+/// A parked car never restarts at the exact GPS point: 38 m on 2026-11-07, so
+/// a saved distance of 0 km blocked the join at any gap (BIZ-065).
+const MIN_JUMP_M: f64 = 300.0;
 
 /// The trip data the matcher needs.
 #[derive(Debug, Clone)]
@@ -141,7 +145,7 @@ pub struct MergeRules {
     /// this or [`MAX_STOP_IN_TRIP_MIN`], whichever is longer.
     pub max_gap_min: i64,
     /// The largest distance from the end of a drive to the start of the next
-    /// drive of a chain.
+    /// drive of a chain. A value below [`MIN_JUMP_M`] counts as [`MIN_JUMP_M`].
     pub max_jump_m: f64,
     /// A loose chain has at least this share of the trip km, in percent. 0 =
     /// no minimum. Without it, a 3 km city drive near home went loosely to
@@ -376,7 +380,7 @@ fn missing_chains(drives: &[Drive], used: &[bool], rules: MergeRules) -> Vec<Vec
     for (d, _) in drives.iter().zip(used).filter(|(_, u)| !**u) {
         let joins = chains.last().and_then(|c| c.last()).is_some_and(|prev| {
             minutes(prev.end, d.start) <= rules.max_gap_min
-                && haversine_m(prev.end_point, d.start_point) <= rules.max_jump_m
+                && haversine_m(prev.end_point, d.start_point) <= rules.max_jump_m.max(MIN_JUMP_M)
         });
         if joins {
             chains.last_mut().unwrap().push(d.clone());

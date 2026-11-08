@@ -4,6 +4,23 @@ Architecture Decision Records (ADRs) and business logic decisions. **Newest firs
 
 ---
 
+## 2026-11-08: Fuelio Merge Distance
+
+### BIZ-065: A merge distance below 300 m counts as 300 m (amends [BIZ-027](#biz-027-fuelio-drives-are-the-reference-of-the-cross-check))
+
+**Context:** A missing chain joins two drives only if the stop is within the gap and the second drive starts within the distance. The live settings had `mergeJumpKm: 0`. A parked car does not restart at the exact GPS point: on 2026-11-07 the second drive started 38 m from the end of the first. So the check failed at any gap, and the user saw that "Spojiť pri prestávke do (min)" had no effect. On the production data of 2026 with a gap of 140 min, the report had 485 rows at 0 km, 216 at 0.05 km and 199 at 2 km.
+
+**Options considered:**
+1. 0 km means no distance limit, like "0 = bez limitu" of the loose share - two drives in different towns can then join.
+2. A floor at the GPS error of a parked car - 0 km means "the same place".
+3. Refuse 0 on the page - the saved value stays, and the input still has no useful low values.
+
+**Decision:** Option 2. `missing_chains` uses the larger of `MergeRules::max_jump_m` and `MIN_JUMP_M` (300 m). The passes 1 and 2 do not check the distance, so they do not change.
+
+**Reasoning:** A literal 0 m can never pass on GPS data, so it has no use. "The same place" is what a user who enters 0 means. 300 m is the value that [BIZ-031](#biz-031-a-new-trip-preselects-a-place-only-within-300-m-and-a-new-place-is-always-offered) uses for the GPS error at a parked car. The constant is separate, because BIZ-031 is a rule for a place of a new trip.
+
+---
+
 ## 2026-11-06: UI Mockups (Task 95)
 
 ### ADR-064: One mockups artifact per owner, its UUID outside the repo (amends ADR-063)

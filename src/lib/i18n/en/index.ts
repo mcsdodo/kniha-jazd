@@ -529,7 +529,7 @@ const en = {
 		mergeJump: 'and a distance of up to (km)',
 		looseMin: 'Loose match from (% km)',
 		looseMinHint: 'A Fuelio drive matches a logbook trip loosely only if it has at least this percent of the trip km. 0 = no limit.',
-		mergeHint: 'Fuelio splits a drive at a stop. Two drives join one row if the second starts at most this many minutes and km from the end of the first. Drives of a logbook trip always join over a stop of up to 90 min.',
+		mergeHint: 'Fuelio splits a drive at a stop. Two drives join one row if the second starts at most this many minutes and km from the end of the first. Up to 300 m always counts as the same place, also with 0. Drives of a logbook trip always join over a stop of up to 90 min.',
 		highwayOnly: 'Highway only',
 		highwayHint: 'A drive >= 30 km or >= 5 min above 100 km/h',
 		problemsOnly: 'Problems only',

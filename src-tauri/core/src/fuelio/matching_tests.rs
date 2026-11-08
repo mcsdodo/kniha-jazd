@@ -684,6 +684,32 @@ fn a_gap_below_90_minutes_keeps_90_for_a_trip() {
     assert_eq!(find(&rows, "t1").drive_ids, vec!["d1", "d2"]);
 }
 
+// 2026-11-07: out and back with a 126-minute stop. The second drive started
+// 38 m from the end of the first, and a saved distance of 0 km kept them apart
+// at any gap.
+#[test]
+fn a_distance_of_zero_still_joins_drives_that_stopped_at_the_same_place() {
+    let parked = (48.0003, 21.0);
+    let drives = [
+        drive("d1", at(7, 12, 36), 53, A, B, 50.5),
+        drive("d2", at(7, 15, 35), 53, parked, A, 47.6),
+    ];
+    let rows = super::crosscheck(&[], &drives, rules(140, 0.0));
+    assert_eq!(rows.len(), 1);
+    assert_eq!(rows[0].drive_ids, vec!["d1", "d2"]);
+}
+
+#[test]
+fn a_distance_of_zero_keeps_drives_apart_when_the_second_starts_elsewhere() {
+    // About 1 km from the end of d1: the car moved, this is not one stop.
+    let elsewhere = (48.009, 21.0);
+    let drives = [
+        drive("d1", at(7, 12, 36), 53, A, B, 50.5),
+        drive("d2", at(7, 15, 35), 53, elsewhere, A, 47.6),
+    ];
+    assert_eq!(super::crosscheck(&[], &drives, rules(140, 0.0)).len(), 2);
+}
+
 #[test]
 fn a_gap_of_zero_keeps_every_missing_drive_alone() {
     let drives = [

@@ -529,7 +529,7 @@ const sk = {
 		mergeJump: 'a vzdialenosti do (km)',
 		looseMin: 'Voľné spárovanie od (% km)',
 		looseMinHint: 'Jazda Fuelio sa voľne spáruje s jazdou v knihe, len ak má aspoň toľko percent jej km. 0 = bez limitu.',
-		mergeHint: 'Fuelio rozdelí jazdu pri zastávke. Dve jazdy sa spoja do jedného riadku, ak druhá začne najviac o toľko minút a kilometrov od konca prvej. Jazda, ktorá patrí k jazde v knihe, sa spojí vždy pri prestávke do 90 min.',
+		mergeHint: 'Fuelio rozdelí jazdu pri zastávke. Dve jazdy sa spoja do jedného riadku, ak druhá začne najviac o toľko minút a kilometrov od konca prvej. Do 300 m je to vždy to isté miesto, aj pri hodnote 0. Jazda, ktorá patrí k jazde v knihe, sa spojí vždy pri prestávke do 90 min.',
 		highwayOnly: 'Len diaľnica',
 		highwayHint: 'Jazda >= 30 km alebo >= 5 min nad 100 km/h',
 		problemsOnly: 'Len problémy',

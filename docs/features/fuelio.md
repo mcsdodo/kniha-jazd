@@ -127,7 +127,9 @@ A chain that fits no trip is a **missing** row.
 
 **Merge rules (`MergeRules`).** The page sends `maxGapMin` and `maxJumpKm` with
 `get_fuelio_crosscheck`; absent values use the defaults 60 min and 2 km, and a negative
-value is an error. They replace the gap and the distance of the pass 3 chains.
+value is an error. They replace the gap and the distance of the pass 3 chains. A
+distance below 300 m counts as 300 m (`MIN_JUMP_M`, [BIZ-065](../../DECISIONS.md#biz-065-a-merge-distance-below-300-m-counts-as-300-m-amends-biz-027)), so 0 km means "the same
+place" and not "never".
 `looseMinKmPct` (default 50) is the loose km share of pass 3; a negative value is an
 error too. The
 passes 1 and 2 use the gap or 90 min, whichever is longer, so a small value never

@@ -28,6 +28,9 @@ databázu len na čítanie.
 ### Zmenené
 - **Stav tachometra v zozname jázd na telefóne** - Karta jazdy ukazuje stav tachometra sivou farbou pod najazdenými km, len ako číslo. Riadok pod trasou ukazuje len účel jazdy.
 
+### Opravené
+- **Spájanie jázd Fuelio pri vzdialenosti 0 km** - Hodnota 0 v poli "a vzdialenosti do (km)" úplne zablokovala spájanie, takže pole "Spojiť pri prestávke do (min)" nemalo žiadny účinok. Vzdialenosť do 300 m sa teraz vždy počíta ako to isté miesto.
+
 ## [2.8.0] - 2026-11-05
 
 ### Pokyny k aktualizácii
