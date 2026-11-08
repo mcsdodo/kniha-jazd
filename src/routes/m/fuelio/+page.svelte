@@ -27,6 +27,9 @@
 	let purposeSuggestions = $state<string[]>([]);
 	// The manual joins (BIZ-066), as on /fuelio. Not saved.
 	let joins = $state<string[]>([]);
+	// The filters of the PC page: one saved set for both pages. null until read.
+	let filters = $state<api.FuelioFilters | null>(null);
+	let filtersOpen = $state(false);
 
 	// The add form for one row.
 	let adding = $state<FuelioRow | null>(null);
@@ -87,7 +90,8 @@
 		loading = true;
 		loadError = null;
 		try {
-			const filters = await api.getFuelioFilters().catch(() => null);
+			// Read once: a later load must not overwrite a field that the user edits.
+			if (!filters) filters = await api.getFuelioFilters().catch(() => null);
 			const r = await api.getFuelioCrosscheck(
 				vehicleId,
 				year,
@@ -99,8 +103,8 @@
 				[...joins]
 			);
 			// The backend sorts newest first.
-			// The saved min-km filter of the PC page hides short fragments here
-			// too. Display filtering only, the same rule as /fuelio.
+			// The saved min-km filter hides short fragments, as on /fuelio.
+			// Display filtering only.
 			const minKm = filters?.minKm || 0;
 			if (seq === loadSeq)
 				rows = r.rows.filter(
@@ -111,6 +115,29 @@
 		} finally {
 			if (seq === loadSeq) loading = false;
 		}
+	}
+
+	// An empty number input binds as undefined: save it as null. Save first, so
+	// the new report uses the saved values.
+	async function saveFilters() {
+		const vehicle = $activeVehicleStore;
+		if (!filters || !vehicle) return;
+		try {
+			await api.setFuelioFilters({
+				minKm: filters.minKm ?? null,
+				mergeGapMin: filters.mergeGapMin ?? null,
+				mergeJumpKm: filters.mergeJumpKm ?? null,
+				looseMinKmPct: filters.looseMinKmPct ?? null
+			});
+		} catch (e) {
+			toast.error(String(e));
+			return;
+		}
+		await load(vehicle.id);
+	}
+
+	function shown(value: number | null | undefined): string {
+		return value === null || value === undefined ? '-' : String(value);
 	}
 
 	function changeJoins(next: string[]) {
@@ -305,6 +332,63 @@
 			<p class="error" role="alert" data-testid="m-fuelio-error">{$LL.mobile.add.loadError({ error: loadError })}</p>
 		{/if}
 
+		{#if rows && rows.length > 0}
+			<p class="muted small">{$LL.mobile.add.fuelioIntro()}</p>
+		{/if}
+
+		<!-- Outside the list branches: a filter that hides every row must not hide this. -->
+		{#if filters}
+			{#if filtersOpen}
+				<section class="filters">
+					<div class="filters-head">
+						<button
+							type="button"
+							class="link-btn"
+							onclick={() => (filtersOpen = false)}
+							data-testid="m-fuelio-filters-toggle">{$LL.mobile.add.filtersHide()}</button
+						>
+					</div>
+					<label class="filter">
+						{$LL.fuelio.minKm()}
+						<input type="number" min="0" inputmode="decimal" bind:value={filters.minKm} onchange={saveFilters} data-testid="m-fuelio-filter-min-km" />
+					</label>
+					<div class="two">
+						<label class="filter">
+							{$LL.fuelio.mergeGap()}
+							<input type="number" min="0" step="5" inputmode="numeric" bind:value={filters.mergeGapMin} onchange={saveFilters} data-testid="m-fuelio-filter-gap" />
+						</label>
+						<label class="filter">
+							{$LL.fuelio.mergeJump()}
+							<input type="number" min="0" step="0.5" inputmode="decimal" bind:value={filters.mergeJumpKm} onchange={saveFilters} data-testid="m-fuelio-filter-jump" />
+						</label>
+					</div>
+					<p class="muted small">{$LL.fuelio.mergeHint()}</p>
+					<label class="filter">
+						{$LL.fuelio.looseMin()}
+						<input type="number" min="0" step="10" inputmode="decimal" bind:value={filters.looseMinKmPct} onchange={saveFilters} data-testid="m-fuelio-filter-loose" />
+					</label>
+					<p class="muted small">{$LL.fuelio.looseMinHint()}</p>
+				</section>
+			{:else}
+				<div class="filters-line">
+					<span class="muted small" data-testid="m-fuelio-filters-summary"
+						>{$LL.mobile.add.filtersSummary({
+							minKm: shown(filters.minKm),
+							gap: shown(filters.mergeGapMin),
+							jump: shown(filters.mergeJumpKm),
+							loose: shown(filters.looseMinKmPct)
+						})}</span
+					>
+					<button
+						type="button"
+						class="link-btn"
+						onclick={() => (filtersOpen = true)}
+						data-testid="m-fuelio-filters-toggle">{$LL.mobile.add.filtersEdit()}</button
+					>
+				</div>
+			{/if}
+		{/if}
+
 		{#if rows === null}
 			{#if loading}
 				<p class="muted">{$LL.mobile.add.loading()}</p>
@@ -312,7 +396,6 @@
 		{:else if rows.length === 0}
 			<p class="muted" data-testid="m-fuelio-empty">{$LL.mobile.add.noMissing()}</p>
 		{:else}
-			<p class="muted small">{$LL.mobile.add.fuelioIntro()}</p>
 			<ul class="cards">
 				{#each rows as row (row.driveIds.join(','))}
 					<li>
@@ -434,6 +517,54 @@
 		font-size: 1rem;
 		text-align: left;
 		cursor: pointer;
+	}
+	.filters-line {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 0.75rem;
+		margin-bottom: 0.5rem;
+	}
+	.filters {
+		display: flex;
+		flex-direction: column;
+		gap: 0.6rem;
+		margin-bottom: 0.75rem;
+		padding: 0.5rem 0.75rem 0.75rem;
+		border: 1px solid var(--border-default);
+		border-radius: 8px;
+		background: var(--bg-surface);
+	}
+	.filters p {
+		margin: 0;
+	}
+	.filters-head {
+		display: flex;
+		justify-content: flex-end;
+	}
+	.two {
+		display: grid;
+		grid-template-columns: 1fr 1fr;
+		gap: 0.75rem;
+		align-items: end;
+	}
+	.filter {
+		display: flex;
+		flex-direction: column;
+		gap: 0.3rem;
+		font-size: 0.9rem;
+		font-weight: 600;
+	}
+	.filter input {
+		box-sizing: border-box;
+		width: 100%;
+		min-height: 44px;
+		padding: 0.5rem 0.75rem;
+		border: 1px solid var(--border-input);
+		border-radius: 6px;
+		background: var(--input-bg);
+		color: var(--text-primary);
+		font-size: 1rem;
 	}
 	.join-actions {
 		display: flex;

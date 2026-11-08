@@ -125,7 +125,7 @@ header.page p { margin: 0; color: var(--muted); max-width: 65ch; }
 <body>
 <header class="page">
   <h1>Kniha jázd on the phone: current state</h1>
-  <p>Twelve phone screens under <code>/m</code>, as they work on <code>main</code>. The example data is invented. The UI text is Slovak, as in the app. The notes under each screen say what the screen does.</p>
+  <p>Thirteen phone screens under <code>/m</code>, as they work on <code>main</code>. The example data is invented. The UI text is Slovak, as in the app. The notes under each screen say what the screen does.</p>
   <p>The source is <code>docs/mockups/mobil.html</code> in the repo. Its git history shows when the page changed.</p>
   <p>An orange dashed box with the tag "Návrh (task NN)" marks a proposal that is not built yet. This page has no open proposal.</p>
   <p style="display:flex;flex-wrap:wrap;gap:6px 14px;font-size:0.9rem"><a style="color:var(--accent)" href="index.html">All mockups</a> <b>Mobil</b> <span style="color:var(--muted)">PC:</span> <a style="color:var(--accent)" href="jazdy.html">Jazdy</a><a style="color:var(--accent)" href="doklady.html">Doklady</a><a style="color:var(--accent)" href="fuelio.html">Fuelio</a><a style="color:var(--accent)" href="mapa.html">Mapa</a><a style="color:var(--accent)" href="miesta.html">Miesta</a><a style="color:var(--accent)" href="nastavenia.html">Nastavenia</a></p>
@@ -240,6 +240,9 @@ header.page p { margin: 0; color: var(--muted); max-width: 65ch; }
       <div class="body">
         <div class="status">Synchronizujem s Dropbox...</div>
         <div class="note">Jazdy z Fuelio, ktoré nie sú v knihe jázd. Najnovšie hore.</div>
+        <div>
+          <div class="top" style="display:flex;justify-content:space-between;gap:8px;font-size:0.9rem"><span class="note">Min. 15 km, prestávka 60 min, 2 km, voľné 50 %</span><span class="link">Upraviť</span></div>
+        </div>
         <div class="card frow"><div class="top"><span>5.11.2026 &nbsp;16:08 - 16:24 &nbsp;5.0 km</span><span class="link">Pridať &gt;</span></div></div>
         <div class="card frow"><div class="top"><span>5.11.2026 &nbsp;15:27 - 15:39 &nbsp;5.4 km</span><span class="link">Pridať &gt;</span></div></div>
         <div style="text-align:right"><span class="link">Spojiť s nasledujúcou</span></div>
@@ -249,10 +252,41 @@ header.page p { margin: 0; color: var(--muted); max-width: 65ch; }
       </div>
     </div>
     <ul class="ann">
-      <li>The list shows the drives of the current year that have no trip in the book. Ignored drives and drives under the saved minimum km of the PC Fuelio page do not show.</li>
+      <li>The list shows the drives of the current year that have no trip in the book. Ignored drives and drives under the saved minimum km do not show.</li>
       <li>The local list shows at once. The Dropbox sync runs at the same time. It downloads only the new files, and the list reloads only if a file came.</li>
       <li>"Spojiť s nasledujúcou" under a drive joins it with the next missing drive, as on the PC Fuelio page. The joined drive shows "Rozdeliť spojené jazdy" and "Pridať" writes it as one trip. A reload removes the join.</li>
       <li>After the sync, the status line shows "Synchronizované o 17:52". If the sync fails, the status line shows the error, and the local list stays.</li>
+      <li>A line above the list shows the saved values of the four filters. "Upraviť" opens screen 4b.</li>
+    </ul>
+  </section>
+
+  <!-- 4b. Fuelio filters -->
+  <section class="screen">
+    <h2>4b. Fuelio drives: filters open</h2>
+    <div class="phone">
+      <div class="bar"><span><span class="back">&lt; Späť</span> &nbsp;Jazdy z Fuelio</span></div>
+      <div class="body">
+        <div class="card">
+          <div class="top" style="display:flex;justify-content:flex-end"><span class="link">Skryť</span></div>
+          <div class="field"><label for="ff-min">Min. km</label><div class="input" id="ff-min"><span>15</span></div></div>
+          <div class="two">
+            <div class="field"><label for="ff-gap">Spojiť pri prestávke do (min)</label><div class="input focus" id="ff-gap"><span>140</span></div></div>
+            <div class="field"><label for="ff-jump">a vzdialenosti do (km)</label><div class="input" id="ff-jump"><span>2</span></div></div>
+          </div>
+          <span class="note">Fuelio rozdelí jazdu pri zastávke. Dve jazdy sa spoja do jedného riadku, ak druhá začne najviac o toľko minút a kilometrov od konca prvej. Do 300 m je to vždy to isté miesto, aj pri hodnote 0. Jazda, ktorá patrí k jazde v knihe, sa spojí vždy pri prestávke do 90 min.</span>
+          <div class="field"><label for="ff-loose">Voľné spárovanie od (% km)</label><div class="input" id="ff-loose"><span>50</span></div></div>
+          <span class="note">Jazda Fuelio sa voľne spáruje s jazdou v knihe, len ak má aspoň toľko percent jej km. 0 = bez limitu.</span>
+        </div>
+        <div class="card frow"><div class="top"><span>5.11.2026 &nbsp;15:27 - 16:24 &nbsp;10.4 km</span><span class="link">Pridať &gt;</span></div></div>
+        <div class="card frow"><div class="top"><span>5.11.2026 &nbsp;11:51 - 11:56 &nbsp;2.8 km</span><span class="link">Pridať &gt;</span></div></div>
+      </div>
+    </div>
+    <ul class="ann">
+      <li>The four fields are the same values as the filters of the PC Fuelio page. There is one saved set, so a change on the phone also changes the PC page.</li>
+      <li>A change saves all four with <code>set_fuelio_filters</code> when the field loses focus. The list loads again under the fields. There is no save button.</li>
+      <li>An empty field saves as empty, as on the PC: no minimum km, or the backend default for the other three.</li>
+      <li>The phone has no tooltips, so the two PC tooltip texts show as notes under the fields.</li>
+      <li>"Skryť" closes the fields. The fields start closed on each visit.</li>
     </ul>
   </section>
 

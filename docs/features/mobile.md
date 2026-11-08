@@ -65,8 +65,10 @@ estimate of a manual trip, and the origin default of a manual trip.
 ### 4. Fuelio drives (`/m/fuelio`)
 
 1. The list shows the drives of the current year that have no trip in the book.
-2. Ignored drives do not show. Drives under the saved minimum km of the PC Fuelio page
-   do not show.
+2. Ignored drives do not show. Drives under the saved minimum km do not show. A line
+   above the list shows the four saved filters of the PC Fuelio page, and **Upraviť**
+   opens them. A change saves when the field loses focus (`set_fuelio_filters`), and the
+   list loads again. The phone and the PC share one saved set.
 3. The local list shows at once. A Dropbox sync of the year runs at the same time. It
    downloads only the new files. The list loads again only if a file came.
 4. The status line shows the sync: "Synchronizujem s Dropbox...", then

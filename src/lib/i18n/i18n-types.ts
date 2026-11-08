@@ -2433,6 +2433,22 @@ type RootTranslation = {
 			 */
 			fuelioIntro: string
 			/**
+			 * M​i​n​.​ ​{​m​i​n​K​m​}​ ​k​m​,​ ​p​r​e​s​t​á​v​k​a​ ​{​g​a​p​}​ ​m​i​n​,​ ​{​j​u​m​p​}​ ​k​m​,​ ​v​o​ľ​n​é​ ​{​l​o​o​s​e​}​ ​%
+			 * @param {string} gap
+			 * @param {string} jump
+			 * @param {string} loose
+			 * @param {string} minKm
+			 */
+			filtersSummary: RequiredParams<'gap' | 'jump' | 'loose' | 'minKm'>
+			/**
+			 * U​p​r​a​v​i​ť
+			 */
+			filtersEdit: string
+			/**
+			 * S​k​r​y​ť
+			 */
+			filtersHide: string
+			/**
 			 * S​y​n​c​h​r​o​n​i​z​u​j​e​m​ ​s​ ​D​r​o​p​b​o​x​.​.​.
 			 */
 			syncing: string
@@ -5929,6 +5945,18 @@ export type TranslationFunctions = {
 			 * Jazdy z Fuelio, ktoré nie sú v knihe jázd. Najnovšie hore.
 			 */
 			fuelioIntro: () => LocalizedString
+			/**
+			 * Min. {minKm} km, prestávka {gap} min, {jump} km, voľné {loose} %
+			 */
+			filtersSummary: (arg: { gap: string, jump: string, loose: string, minKm: string }) => LocalizedString
+			/**
+			 * Upraviť
+			 */
+			filtersEdit: () => LocalizedString
+			/**
+			 * Skryť
+			 */
+			filtersHide: () => LocalizedString
 			/**
 			 * Synchronizujem s Dropbox...
 			 */

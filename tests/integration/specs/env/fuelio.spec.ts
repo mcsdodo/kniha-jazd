@@ -55,6 +55,17 @@ async function setMergeInput(testId: string, value: string): Promise<void> {
   );
 }
 
+async function phoneRows(): Promise<number> {
+  return (await $$('[data-testid="m-fuelio-row"]').getElements()).length;
+}
+
+async function waitForPhoneRows(count: number): Promise<void> {
+  await browser.waitUntil(async () => (await phoneRows()) === count, {
+    timeout: 10000,
+    timeoutMsg: `expected ${count} phone rows, got ${await phoneRows()}`,
+  });
+}
+
 /** The places at the two ends of the fixture's 22 km drives. */
 async function seedPlaces(): Promise<void> {
   await rpc('create_place', { name: 'Fuelio South', lat: 48.0, lon: 17.0, source: 'manual' });
@@ -165,18 +176,42 @@ describe('Fuelio page (Dropbox configured)', () => {
       filters: { minKm: 0, mergeGapMin: 60, mergeJumpKm: 2, looseMinKmPct: 50 },
     });
     await browser.url('/m/fuelio');
-    const phoneRows = async () => (await $$('[data-testid="m-fuelio-row"]').getElements()).length;
-    const waitForPhoneRows = async (count: number) =>
-      browser.waitUntil(async () => (await phoneRows()) === count, {
-        timeout: 10000,
-        timeoutMsg: `expected ${count} phone rows, got ${await phoneRows()}`,
-      });
     await waitForPhoneRows(3);
 
     await clickLast('m-fuelio-join-next');
     await waitForPhoneRows(2);
     await $('[data-testid="m-fuelio-split"]').click();
     await waitForPhoneRows(3);
+  });
+
+  it('changes the filters shared with the PC page from the phone page', async () => {
+    await browser.url('/m/fuelio');
+    // The 15 km default hides the 3 km fragment.
+    await waitForPhoneRows(2);
+    expect(await $('[data-testid="m-fuelio-filters-summary"]').getText()).toContain('Min. 15 km');
+
+    await $('[data-testid="m-fuelio-filters-toggle"]').click();
+    await setMergeInput('m-fuelio-filter-min-km', '0');
+    await waitForPhoneRows(3);
+    await setMergeInput('m-fuelio-filter-gap', '120');
+    // The fragment joins the first drive.
+    await waitForPhoneRows(2);
+
+    const saved = await rpc<{ minKm: number; mergeGapMin: number }>('get_fuelio_filters');
+    expect(saved.minKm).toBe(0);
+    expect(saved.mergeGapMin).toBe(120);
+
+    // A filter that hides every row must not hide the fields.
+    await setMergeInput('m-fuelio-filter-min-km', '999');
+    await $('[data-testid="m-fuelio-empty"]').waitForDisplayed({ timeout: 10000 });
+    expect(await $('[data-testid="m-fuelio-filter-min-km"]').isDisplayed()).toBe(true);
+
+    await $('[data-testid="m-fuelio-filters-toggle"]').click();
+    await browser.waitUntil(
+      async () => !(await $('[data-testid="m-fuelio-filter-min-km"]').isExisting()),
+      { timeout: 5000, timeoutMsg: 'the fields did not close' }
+    );
+    expect(await $('[data-testid="m-fuelio-filters-summary"]').getText()).toContain('Min. 999 km');
   });
 
   it('remembers the filters after a reload', async () => {
