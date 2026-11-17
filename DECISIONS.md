@@ -4,6 +4,28 @@ Architecture Decision Records (ADRs) and business logic decisions. **Newest firs
 
 ---
 
+## 2026-11-17: UI Mockups as a Canvas
+
+### ADR-067: The mockups artifact is a Design canvas, generated from the HTML files (amends ADR-063, ADR-064)
+
+**Context:** The mockups artifact of [ADR-064](#adr-064-one-mockups-artifact-per-owner-its-uuid-outside-the-repo-amends-adr-063) shows one HTML file at a time. The owner wants all the screens as artboards on one claude.ai Design canvas, and the source must stay in git.
+
+**Options considered:**
+1. Edit the canvas by hand and copy the changes back to git - two sources, and a canvas edit is not reviewable in a diff.
+2. Generate the canvas from the HTML files - one source, the canvas is a build output.
+3. Keep the multi-file artifact - no artboards.
+
+**Decision:** Option 2.
+- [scripts/mockups-to-canvas.mjs](scripts/mockups-to-canvas.mjs) turns each frame (`section.frame`, `section.screen`) into one artboard `project/<data-board>.dc.html`, plus one intro and one open-points artboard per page. Each mockup file is one canvas page.
+- Each frame has a fixed `data-board` name in the source. The canvas keys an artboard by its path, so a name from the title or the position would lose its comments and its position after a rename or an insert. The generator stops on a missing or a repeated name.
+- The generator measures each frame in headless Chrome (webdriverio), so the artboard has the size of the source frame. It merges with the live `canvas.json`: notes and editor keys of the user stay.
+- The canvas link replaces the old UUID in `KNIHA_JAZD_MOCKUPS_ARTIFACT`. The old multi-file artifact is deleted after the owner compares the two.
+- Nobody edits the canvas by hand. A publish over a hand edit is refused. Then the change goes into the HTML file, and the generator runs again.
+
+**Reasoning:** The HTML files, GitHub Pages and [scripts/mockup-drift.sh](scripts/mockup-drift.sh) do not change. On 2026-11-17 the layout of all 80 artboards (position, size, colour and font of each element) was the same as in the source files, in the light and in the dark theme. The generator has no dependencies, so its tests run in the `test:unit` job, which has no `npm ci`.
+
+---
+
 ## 2026-11-08: Fuelio Merge and Join
 
 ### BIZ-066: A manual join of missing rows is a page step, and the backend decides what can join

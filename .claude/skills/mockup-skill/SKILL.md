@@ -1,20 +1,22 @@
 ---
 name: mockup
-description: Use before planning or coding a change that adds or changes a screen, a dialog, a column or a UI state - draws the change in the page's mockup file in docs/mockups/ first, publishes it to the claude.ai mockups artifact for review, gets the user's approval, and after the merge turns the proposal into the current state. Also use for "update the mockup", "draw it first", "show me how it would look", or when /verify lists mockup drift.
+description: Use before planning or coding a change that adds or changes a screen, a dialog, a column or a UI state - draws the change in the page's mockup file in docs/mockups/ first, generates and publishes the claude.ai mockups canvas for review, gets the user's approval, and after the merge turns the proposal into the current state. Also use for "update the mockup", "draw it first", "show me how it would look", or when /verify lists mockup drift.
 ---
 
 # Mockup first
 
 Each page of the app has a mockup file in [docs/mockups/](../../../docs/mockups/README.md): static
 HTML that draws the screens of the page as frames, with English notes under each frame. **The
-file is the source.** One private claude.ai artifact holds all the files of the folder, with
-`index.html` as its start page. It is only the published view, where the user reviews and sends
-comments to Claude. The registry [docs/mockups/README.md](../../../docs/mockups/README.md) maps
-each page to its file and its source paths.
+file is the source.** One private claude.ai Design canvas shows all the frames as artboards: one
+canvas page per file, one artboard per frame, plus an intro and an open-points artboard per page.
+[scripts/mockups-to-canvas.mjs](../../../scripts/mockups-to-canvas.mjs) generates it from the
+files (ADR-067). The canvas is only the published view, where the user reviews and sends comments
+to Claude. The registry [docs/mockups/README.md](../../../docs/mockups/README.md) maps each page
+to its file and its source paths.
 
-The artifact belongs to one owner: a new artifact is private to the claude.ai account that
-publishes it. So its UUID is not in the public repo, but in the gitignored
-`.claude/settings.local.json` of the owner's checkout (ADR-064). This checkout:
+The canvas belongs to one owner: a new artifact is private to the claude.ai account that
+publishes it. So its link is not in the public repo, but in the gitignored
+`.claude/settings.local.json` of the owner's checkout (ADR-064, ADR-067). This checkout:
 !`jq -r '.env.KNIHA_JAZD_MOCKUPS_ARTIFACT // "NOT SET"' "$(dirname "$(git rev-parse --path-format=absolute --git-common-dir)")/.claude/settings.local.json" 2>/dev/null || echo "NOT SET"`
 
 A UI change goes into the mockup file first. The code follows after the user approves it.
@@ -29,39 +31,60 @@ Skip it for a change that the user cannot see (backend logic, tests, refactors).
 
 ## The one rule
 
-**Change the file, then publish it.** Never change the artifact with `edit_version`. A direct
-artifact edit is not in git, and the next publish from the file erases it.
+**Change the file, then generate and publish the canvas.** Never edit an artboard on the
+canvas, by hand or with a tool. A canvas edit is not in git, and the next publish from the
+files erases it.
 
-### Publish, UUID set
+Each frame has a fixed name, `data-board="<page>-<slug>"` on its `section.frame` (PC) or
+`section.screen` (phone). The name is the artboard file `project/<name>.dc.html`. Never change
+the name of an existing frame: the artboard would lose its comments and its position. A new
+frame gets a new unique name. The generator stops on a missing or a repeated name.
 
-1. `get_artifact` with the UUID above, for the live `version`. The tools refuse the short id
-   of the link: use the UUID.
-2. `list_files` with the UUID. A file keeps the path that this list gives (`mobil.html`).
-3. `publish_files` with `slug` = UUID, `base_version` = that version, a short `label`, and only
-   the changed files: `files: [{"as": "mobil.html", "path": "<abs path of the file>"}]`. Patch
-   mode keeps the other files.
+### Publish, canvas link set
 
-### Publish, UUID "NOT SET" (a new owner or a new checkout)
+1. Read the live index: Artifact `read` with `url` = the link above and `path`
+   `project/canvas.json`. The result names the saved local file.
+2. Generate into an empty scratch folder `<out>`, merged with the live index. Use `--pages` to
+   generate only the changed pages:
+   ```bash
+   node scripts/mockups-to-canvas.mjs --out <out> --live <saved canvas.json> [--pages mobil,fuelio]
+   ```
+   The script prints `files` (the artboards it wrote) and `removed` (artboards of these pages
+   that are no longer in the source).
+3. One Artifact publish: `url` = the link, `root` = `<out>`, `file_path` =
+   `<out>/project/canvas.json`, `files` = each printed file mapped to itself, and each `removed`
+   path mapped to `null`. A short `label`.
+4. If the publish is refused because the canvas changed: read the file that the refusal names.
+   If somebody edited an artboard, show the user the change. Copy it into the HTML file if the
+   user wants it, then generate and publish again. Use `force` only if the user says so.
 
-1. Read the file `.claude/settings.local.json` of the main checkout yourself (not of a worktree). The value above comes from that file,
-   so "NOT SET" means that the key is not in the file. Never publish a second artifact for an
-   owner who has one. On a second machine of the same owner, copy the env var line from the
+### Publish, link "NOT SET" (a new owner or a new checkout)
+
+1. Read the file `.claude/settings.local.json` of the main checkout yourself (not of a
+   worktree). "NOT SET" means that the key is not in the file. Never make a second canvas for
+   an owner who has one. On a second machine of the same owner, copy the env var line from the
    first machine.
-2. Read each `docs/mockups/*.html` in full. The publish tool requires it for a file that this
-   session did not write.
-3. `publish_files` with no `slug`, `title` "Kniha jázd: UI mockups", `icon` "Layout", and all
-   the files, each with `as` = its file name (`index.html`, `jazdy.html`, ...).
-4. Merge the UUID from the result into the file. Do not overwrite it: it also holds the
-   permissions.
+2. Create the canvas: Artifact publish with `type_url` = the Design type (from
+   `action: "quickstart"`, `intent: "design"`), `title` "Kniha jázd: UI mockups",
+   `auto_open: "after_first_write"`, and nothing else.
+3. Generate all pages without `--live`, then publish as in step 3 above.
+4. Merge the link into the file. Do not overwrite it: it also holds the permissions.
    ```bash
    f="$(dirname "$(git rev-parse --path-format=absolute --git-common-dir)")/.claude/settings.local.json"; [ -f "$f" ] || echo '{}' > "$f"
-   jq --arg u "<uuid>" '.env = ((.env // {}) + {"KNIHA_JAZD_MOCKUPS_ARTIFACT": $u})' "$f" > "$f.new" && mv "$f.new" "$f"
+   jq --arg u "<canvas link>" '.env = ((.env // {}) + {"KNIHA_JAZD_MOCKUPS_ARTIFACT": $u})' "$f" > "$f.new" && mv "$f.new" "$f"
    ```
-5. Give the user the artifact link. The env var loads at the next session start; the line
+5. Give the user the canvas link. The env var loads at the next session start; the line
    above reads the file, so it works at once.
 
-If the session has no `claude-artifacts` tools, change the file anyway and say that the
-artifact is not published. The user can publish later, or review the file in a browser.
+If the session has no Artifact tool, change the file anyway and say that the canvas is not
+published. The user can publish later, or review the file in a browser.
+
+### Check the generator output
+
+The generator measures each frame in headless Chrome (webdriverio). If you change the
+generator or the shared CSS, compare a board with its source frame: open both in Chrome and
+compare the position, size and colour of each element under the frame. On 2026-11-17 all 80
+artboards matched in the light and the dark theme.
 
 ### Local server, only on request
 
@@ -76,14 +99,16 @@ unreachable from the user's PC.
 2. Read the Svelte files of the change, so that the frame starts from the real current state.
 3. Change the mockup file:
    - Wrap each changed element or frame in `<div class="open"><span class="tag">Návrh (task NN)</span> ... </div>`.
-   - A new frame gets the tag in its `<h2>` too.
+   - A new frame gets the tag in its `<h2>` too, and a new unique `data-board` name.
    - Add the notes for the change as `<li class="prop">`, with the new behaviour in `<b>`.
    - Keep the other frames as they are.
-4. Publish it. Give the user the artifact link, name the page file, and list what changed.
-   Ask for the review.
-5. A comment that the user sends to Claude on the artifact reaches this session. Read it with
-   `read_comments` (`thread` for the whole thread). The anchor `file` names the page file.
-   Change that file, publish again, then `reply_comment` and `resolve_comment`.
+4. Generate and publish the page (`--pages <page>`). Give the user the canvas link, name the
+   page file and the changed artboards, and list what changed. Ask for the review.
+5. A comment that the user sends to Claude on the canvas reaches this session. Read it with
+   the `ArtifactComments` tool. Its anchor names an artboard, `project/<name>.dc.html`: find
+   the frame with `grep -n 'data-board="<name>"' docs/mockups/*.html`. The `<page>-intro` and
+   `<page>-open-points` artboards are the page header and the "Open points" section. Change
+   that file, generate and publish again, then reply to the comment and resolve it.
 6. When the user approves, commit the mockup file with the task docs, and add to `01-task.md`:
    ```markdown
    ## Design
@@ -97,13 +122,14 @@ unreachable from the user's PC.
    Change the `li.prop` notes to plain `<li>`.
 2. Make the frames match the merged code. Check the labels again: the code can differ from the
    proposal.
-3. Commit the file and publish it.
+3. Commit the file, then generate and publish the page.
 4. `bash scripts/mockup-drift.sh` must not list the page.
 
 ## A dropped feature
 
 Restore the file from git (`git checkout <commit before the proposal> -- docs/mockups/<page>.html`,
-or revert the proposal commit). Then publish it.
+or revert the proposal commit). Then generate and publish the page: a frame that is gone
+comes back in `removed`, and the publish sends it as `null`.
 
 ## A new page
 
@@ -111,10 +137,13 @@ or revert the proposal commit). Then publish it.
    the shared CSS", the page header, the nav, and the theme script at the end.
 2. Add a row to the registry with the page, the file and the source paths.
 3. Add the new page to the nav of the other files as a plain relative link
-   (`<a href="<file>">`). The same link works in the artifact, on GitHub Pages and from a clone.
+   (`<a href="<file>">`). The link works on GitHub Pages and from a clone. The generator drops
+   the nav from the artboards.
 4. Add a card for the page to [docs/mockups/index.html](../../../docs/mockups/index.html), the
-   start page of the artifact and of GitHub Pages.
-5. Publish the new file, `index.html` and the other changed files to the existing artifact.
+   start page of GitHub Pages.
+5. Give each frame a `data-board` name that starts with the file name (`<page>-...`).
+6. Generate and publish the new page. The generator reads the pages from the registry, so the
+   new page becomes a new canvas page.
 
 ## Drawing rules
 
@@ -144,10 +173,11 @@ or revert the proposal commit). Then publish it.
 
 | Mistake | Correct action |
 |---|---|
-| Change the artifact with `edit_version` | Change the file, then publish it. |
-| Call a tool with the id from the link | Use the UUID at the top of this skill. |
-| Put an artifact link or UUID in a repo file | Keep it in `.claude/settings.local.json` only (ADR-064). |
-| Publish a new artifact because the env var is empty | Read `settings.local.json` first. |
+| Edit an artboard on the canvas | Change the file, then generate and publish. |
+| Rename the `data-board` of an existing frame | Keep the name. A rename loses the comments and the position. |
+| Publish `canvas.json` without `--live` to an existing canvas | Read the live index and merge it, or the user's notes are lost. |
+| Put the canvas link in a repo file | Keep it in `.claude/settings.local.json` only (ADR-064). |
+| Make a new canvas because the env var is empty | Read `settings.local.json` first. |
 | Draw the proposal as if it is built | Mark it with `open`, `Návrh (task NN)` and `li.prop`. |
 | Leave the mark after the merge | Remove it, commit, publish. `/move-to-done` checks it. |
 | Copy a label from a doc | Grep `sk/index.ts`. Docs can be out of date. |

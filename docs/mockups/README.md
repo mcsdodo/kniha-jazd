@@ -2,11 +2,15 @@
 
 Each page of the app has a mockup: one HTML file in this folder that draws the screens of the
 page, one frame per state, with English notes under each frame. The files are the source.
-All the files are also published as one private claude.ai artifact, with `index.html` as its
-start page. There the owner reviews them and sends comments to Claude. The artifact is per owner: a new
-artifact is private to the claude.ai account that publishes it, so each person who works on the
-repo publishes their own. Its UUID is in the gitignored `.claude/settings.local.json`, not in the
-repo ([ADR-064](../../DECISIONS.md#adr-064-one-mockups-artifact-per-owner-its-uuid-outside-the-repo-amends-adr-063)).
+A private claude.ai Design canvas shows all the frames as artboards: one canvas page per file,
+one artboard per frame. [scripts/mockups-to-canvas.mjs](../../scripts/mockups-to-canvas.mjs)
+generates it from the files
+([ADR-067](../../DECISIONS.md#adr-067-the-mockups-artifact-is-a-design-canvas-generated-from-the-html-files-amends-adr-063-adr-064)).
+There the owner reviews them and sends comments to Claude. Nobody edits the canvas by hand. The
+canvas is per owner: a new artifact is private to the claude.ai account that publishes it, so
+each person who works on the repo publishes their own. Its link is in the gitignored
+`.claude/settings.local.json`, not in the repo
+([ADR-064](../../DECISIONS.md#adr-064-one-mockups-artifact-per-owner-its-uuid-outside-the-repo-amends-adr-063)).
 
 A change that the user will see goes into the mockup file first, marked "Návrh (task NN)",
 before the plan and the code. The steps are in the `mockup` skill
@@ -15,24 +19,38 @@ before the plan and the code. The steps are in the `mockup` skill
 
 ## View a mockup
 
-- **Owner:** open your own artifact. The `mockup` skill shows its UUID, and publishes a new one
-  if the checkout has none.
+- **Owner:** open your own canvas. The `mockup` skill shows its link, and makes a new one if
+  the checkout has none.
 - **Anybody else:** GitHub Pages serves this folder from `main`. Start at the index,
   [mockups/](https://mcsdodo.github.io/kniha-jazd/mockups/) ([index.html](index.html)), which
-  links to each page. A file in a clone also opens in a browser. In each viewer, the artifact
-  too, the page nav links to the files next to it, and "All mockups" goes back to the index.
+  links to each page. A file in a clone also opens in a browser. There the page nav links to
+  the files next to it, and "All mockups" goes back to the index. The canvas has no nav: its
+  pages are in the canvas page list.
 - Pages serves `docs/` as plain files, without Jekyll ([docs/.nojekyll](../.nojekyll)).
-- **Local server:** use it only if the owner asks for it, or if the artifact does not open
+- **Local server:** use it only if the owner asks for it, or if the canvas does not open
   for the owner. Run `python3 -m http.server 8090 --bind 0.0.0.0 --directory docs/mockups`
   from the repo root, then open `http://<tailscale address of the host>:8090/`. The server
   serves the working tree, so it also shows a change that is not committed.
+
+## Frame names
+
+Each frame has a fixed name: `data-board="<page>-<slug>"` on its `section.frame` (PC) or
+`section.screen` (phone). The name is the artboard file on the canvas, so a rename loses the
+comments and the position of the artboard. Keep the name of an existing frame. A new frame gets
+a new name that is unique in the folder. The generator stops on a missing or a repeated name.
+
+```bash
+node scripts/mockups-to-canvas.mjs --out <scratch dir> [--pages mobil] [--live <canvas.json>]
+```
+
+The steps to publish are in the `mockup` skill.
 
 ## Registry
 
 [scripts/mockup-drift.sh](../../scripts/mockup-drift.sh) reads this table. For each row it lists
 the commits that changed a source path after the last commit that changed the mockup file.
-Keep one row per line, and keep the markers. The table has no artifact link: the artifact
-belongs to its owner.
+Keep one row per line, and keep the markers. The generator reads the same table: each row is
+one canvas page. The table has no canvas link: the canvas belongs to its owner.
 
 <!-- registry:start -->
 | Page | File | Source paths |
