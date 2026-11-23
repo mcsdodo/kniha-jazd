@@ -1,6 +1,6 @@
 **Date:** 2026-11-23
 **Subject:** Fuelio "Pridať" dialog: one place field instead of a select plus a name input
-**Status:** In Progress
+**Status:** Complete
 
 ## Goal
 
@@ -30,7 +30,7 @@ It is listed as an open point in the mockup. "Účel" already has the purpose au
 
 ## Design
 
-Frames 5 and 5b of [docs/mockups/fuelio.html](../../docs/mockups/fuelio.html), marked "Návrh (task 97)".
+Frames 5 and 5b of [docs/mockups/fuelio.html](../../../docs/mockups/fuelio.html), marked "Návrh (task 97)".
 
 ## Technical Notes
 
