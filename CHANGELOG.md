@@ -19,7 +19,7 @@ databázu len na čítanie.
 - **Premenné prostredia:** bez zmeny
 - **Migrácie databázy:** žiadne
 - **Strata údajov:** žiadna
-- **Image, volume, port:** bez zmeny
+- **Image, volume, port:** image, volume a port bez zmeny. Príklad `docker-compose.web.yml` odovzdá kontajneru `SYGIC_API_KEY` a `SYGIC_REFERER` z `.env` (prázdna hodnota znamená nenastavená). Server obe premenné poznal už predtým.
 
 ### Pridané
 - **Miesta na telefóne** - Nová stránka `/m/miesta` ukazuje zoznam miest s hľadaním (nájde aj názvy s diakritikou, keď napíšete text bez nej). Miesto môžete premenovať, umiestniť (hľadaním adresy, ťuknutím na mapu, posunom špendlíka alebo tlačidlom Moja poloha), označiť ako domov alebo zmazať, ak ho nepoužíva žiadna jazda. Nové miesto pridáte tlačidlom Pridať miesto. Na úvodnej stránke `/m` je tlačidlo Miesta.
