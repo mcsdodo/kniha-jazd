@@ -1,11 +1,12 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import * as api from '$lib/api';
-	import type { CascadePlan, FuelioAddEnd, FuelioAddPreview, FuelioRow, Trip } from '$lib/types';
+	import type { CascadePlan, FuelioAddEnd, FuelioAddPreview, FuelioPlaceOption, FuelioRow, Trip } from '$lib/types';
 	import LL from '$lib/i18n/i18n-svelte';
 	import { toast } from '$lib/stores/toast';
 	import OdometerCascadeModal from './OdometerCascadeModal.svelte';
 	import Autocomplete from './Autocomplete.svelte';
+	import FuelioPlaceField from './FuelioPlaceField.svelte';
 
 	// Task 90: add a logbook trip from a "missing" or loose Fuelio row. The backend
 	// computes the values and the place order (ADR-008); this dialog lets the
@@ -21,12 +22,12 @@
 	let { row, vehicleId, year, onDone, onCancel }: Props = $props();
 
 	let preview = $state<FuelioAddPreview | null>(null);
-	// A place id, or NEW_PLACE: a new place at the GPS point (Task 93).
-	const NEW_PLACE = '__new__';
-	let originId = $state('');
-	let destinationId = $state('');
-	let originName = $state('');
-	let destinationName = $state('');
+	// Task 97: the text of each end. A known place name is that place, other
+	// text is a new place at the GPS point (Task 93).
+	let originText = $state('');
+	let destinationText = $state('');
+	// The ends resolved at "Pridať jazdu": the dry run and the commit use the same.
+	let ends: { origin: FuelioAddEnd; destination: FuelioAddEnd } | null = null;
 	let purpose = $state('');
 	let purposeSuggestions = $state<string[]>([]);
 	let withRoute = $state(true);
@@ -45,9 +46,12 @@
 		try {
 			preview = await api.getFuelioAddPreview(row.driveIds);
 			// The backend preselects a place within its radius (Task 93). No
-			// place there: no guess, the user names a new place or picks one.
-			originId = preview.originPreselectId ?? NEW_PLACE;
-			destinationId = preview.destinationPreselectId ?? NEW_PLACE;
+			// place there: no guess, the field stays empty.
+			const p = preview;
+			const name = (id: string | null, list: FuelioPlaceOption[]) =>
+				list.find((o) => o.id === id)?.name ?? '';
+			originText = name(p.originPreselectId, p.origin);
+			destinationText = name(p.destinationPreselectId, p.destination);
 		} catch (e) {
 			error = String(e);
 		}
@@ -60,23 +64,20 @@
 		const [y, m, d] = date.split('-');
 		return `${Number(d)}.${Number(m)}.${y} ${time.slice(0, 5)}`;
 	}
-	function km(m: number): string {
-		return (m / 1000).toFixed(m < 10000 ? 2 : 0);
-	}
-
-	function end(id: string, name: string): FuelioAddEnd {
-		return id === NEW_PLACE ? { placeId: null, newPlaceName: name.trim() } : { placeId: id, newPlaceName: null };
-	}
-	function chosen(id: string, name: string): boolean {
-		return id === NEW_PLACE ? name.trim() !== '' : id !== '';
+	// An exact name from the list, else the backend fold (find_place, ADR-008),
+	// else a new place.
+	async function resolve(text: string, list: FuelioPlaceOption[]): Promise<FuelioAddEnd> {
+		const name = text.trim();
+		const id = list.find((o) => o.name === name)?.id ?? (await api.findPlace(name))?.id;
+		return id ? { placeId: id, newPlaceName: null } : { placeId: null, newPlaceName: name };
 	}
 
 	function call(dryRun: boolean) {
 		return api.addFuelioTrip(
 			vehicleId,
 			row.driveIds,
-			end(originId, originName),
-			end(destinationId, destinationName),
+			ends!.origin,
+			ends!.destination,
 			purpose,
 			withRoute,
 			dryRun
@@ -87,6 +88,11 @@
 		busy = true;
 		error = null;
 		try {
+			const [origin, destination] = await Promise.all([
+				resolve(originText, preview!.origin),
+				resolve(destinationText, preview!.destination),
+			]);
+			ends = { origin, destination };
 			const dry = await call(true);
 			if (dry.plan.changes.length > 0 || dry.plan.nextYearChainBreaks) {
 				// Later trips move: confirm in the dialog the logbook grid uses.
@@ -179,59 +185,27 @@
 						<tr>
 							<td><label for="fuelio-add-origin">{$LL.fuelio.add.origin()}</label></td>
 							<td>
-								<select id="fuelio-add-origin" bind:value={originId} data-testid="fuelio-add-origin">
-									<option value={NEW_PLACE}>{$LL.fuelio.add.newPlace()}</option>
-									{#each preview.origin as p (p.id)}
-										<option value={p.id}
-											>{p.name} - {$LL.fuelio.add.distanceFrom({ km: km(p.distanceM) })}</option
-										>
-									{/each}
-								</select>
-								{#if originId === NEW_PLACE}
-									<input
-										class="new-name"
-										type="text"
-										bind:value={originName}
-										placeholder={$LL.fuelio.add.newPlaceName()}
-										aria-label={$LL.fuelio.add.newPlaceName()}
-										data-testid="fuelio-add-origin-new-name"
-									/>
-									<span class="muted hint"
-										>{preview.originPreselectId === null ? $LL.fuelio.add.noNearby() : ''}
-										{$LL.fuelio.add.newPlaceAtStart()}</span
-									>
-								{/if}
+								<FuelioPlaceField
+									id="fuelio-add-origin"
+									testId="fuelio-add-origin"
+									options={preview.origin}
+									bind:text={originText}
+									noNearby={preview.originPreselectId === null}
+									newHint={$LL.fuelio.add.newPlaceAtStart()}
+								/>
 							</td>
 						</tr>
 						<tr>
 							<td><label for="fuelio-add-destination">{$LL.fuelio.add.destination()}</label></td>
 							<td>
-								<select
+								<FuelioPlaceField
 									id="fuelio-add-destination"
-									bind:value={destinationId}
-									data-testid="fuelio-add-destination"
-								>
-									<option value={NEW_PLACE}>{$LL.fuelio.add.newPlace()}</option>
-									{#each preview.destination as p (p.id)}
-										<option value={p.id}
-											>{p.name} - {$LL.fuelio.add.distanceFrom({ km: km(p.distanceM) })}</option
-										>
-									{/each}
-								</select>
-								{#if destinationId === NEW_PLACE}
-									<input
-										class="new-name"
-										type="text"
-										bind:value={destinationName}
-										placeholder={$LL.fuelio.add.newPlaceName()}
-										aria-label={$LL.fuelio.add.newPlaceName()}
-										data-testid="fuelio-add-destination-new-name"
-									/>
-									<span class="muted hint"
-										>{preview.destinationPreselectId === null ? $LL.fuelio.add.noNearby() : ''}
-										{$LL.fuelio.add.newPlaceAtEnd()}</span
-									>
-								{/if}
+									testId="fuelio-add-destination"
+									options={preview.destination}
+									bind:text={destinationText}
+									noNearby={preview.destinationPreselectId === null}
+									newHint={$LL.fuelio.add.newPlaceAtEnd()}
+								/>
 							</td>
 						</tr>
 						<tr>
@@ -268,10 +242,7 @@
 				<button class="button-small" onclick={onCancel}>{$LL.fuelio.add.cancel()}</button>
 				<button
 					class="button-small primary"
-					disabled={!preview ||
-						!chosen(originId, originName) ||
-						!chosen(destinationId, destinationName) ||
-						busy}
+					disabled={!preview || originText.trim() === '' || destinationText.trim() === '' || busy}
 					onclick={proceed}
 					data-testid="fuelio-add-continue">{$LL.fuelio.add.continue()}</button
 				>
@@ -331,8 +302,6 @@
 		white-space: nowrap;
 		width: 1%;
 	}
-	select,
-	.new-name,
 	.purpose :global(input) {
 		box-sizing: border-box;
 		width: 100%;
@@ -342,14 +311,6 @@
 		background: var(--input-bg);
 		color: var(--text-primary);
 		font-size: 0.875rem;
-	}
-	.new-name {
-		margin-top: 0.35rem;
-	}
-	.hint {
-		display: block;
-		font-size: 0.8rem;
-		margin-top: 0.2rem;
 	}
 	.modal-actions {
 		display: flex;

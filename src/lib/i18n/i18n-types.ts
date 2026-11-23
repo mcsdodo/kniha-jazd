@@ -2014,13 +2014,23 @@ type RootTranslation = {
 			 */
 			loading: string
 			/**
-			 * +​ ​N​o​v​é​ ​m​i​e​s​t​o​ ​t​u
+			 * V​y​b​e​r​t​e​ ​m​i​e​s​t​o​ ​a​l​e​b​o​ ​z​a​d​a​j​t​e​ ​n​o​v​ý​ ​n​á​z​o​v
 			 */
-			newPlace: string
+			placeholder: string
 			/**
-			 * N​á​z​o​v​ ​n​o​v​é​h​o​ ​m​i​e​s​t​a
+			 * +​ ​V​y​t​v​o​r​i​ť​ ​n​o​v​é​ ​m​i​e​s​t​o​ ​"​{​n​a​m​e​}​"
+			 * @param {string} name
 			 */
-			newPlaceName: string
+			createPlace: RequiredParams<'name'>
+			/**
+			 * n​o​v​é​ ​m​i​e​s​t​o
+			 */
+			newMark: string
+			/**
+			 * {​k​m​}​ ​k​m
+			 * @param {string} km
+			 */
+			distanceShort: RequiredParams<'km'>
 			/**
 			 * N​o​v​é​ ​m​i​e​s​t​o​ ​s​a​ ​v​y​t​v​o​r​í​ ​v​ ​b​o​d​e​ ​z​a​č​i​a​t​k​u​ ​G​P​S​ ​j​a​z​d​y​.
 			 */
@@ -2030,7 +2040,7 @@ type RootTranslation = {
 			 */
 			newPlaceAtEnd: string
 			/**
-			 * Ž​i​a​d​n​e​ ​z​n​á​m​e​ ​m​i​e​s​t​o​ ​n​a​b​l​í​z​k​u​.​ ​Z​a​d​a​j​t​e​ ​n​á​z​o​v​ ​n​o​v​é​h​o​ ​m​i​e​s​t​a​ ​a​l​e​b​o​ ​v​y​b​e​r​t​e​ ​m​i​e​s​t​o​ ​z​o​ ​z​o​z​n​a​m​u​.
+			 * Ž​i​a​d​n​e​ ​z​n​á​m​e​ ​m​i​e​s​t​o​ ​n​a​b​l​í​z​k​u​.
 			 */
 			noNearby: string
 		}
@@ -5544,13 +5554,21 @@ export type TranslationFunctions = {
 			 */
 			loading: () => LocalizedString
 			/**
-			 * + Nové miesto tu
+			 * Vyberte miesto alebo zadajte nový názov
 			 */
-			newPlace: () => LocalizedString
+			placeholder: () => LocalizedString
 			/**
-			 * Názov nového miesta
+			 * + Vytvoriť nové miesto "{name}"
 			 */
-			newPlaceName: () => LocalizedString
+			createPlace: (arg: { name: string }) => LocalizedString
+			/**
+			 * nové miesto
+			 */
+			newMark: () => LocalizedString
+			/**
+			 * {km} km
+			 */
+			distanceShort: (arg: { km: string }) => LocalizedString
 			/**
 			 * Nové miesto sa vytvorí v bode začiatku GPS jazdy.
 			 */
@@ -5560,7 +5578,7 @@ export type TranslationFunctions = {
 			 */
 			newPlaceAtEnd: () => LocalizedString
 			/**
-			 * Žiadne známe miesto nablízku. Zadajte názov nového miesta alebo vyberte miesto zo zoznamu.
+			 * Žiadne známe miesto nablízku.
 			 */
 			noNearby: () => LocalizedString
 		}

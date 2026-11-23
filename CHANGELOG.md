@@ -28,6 +28,7 @@ databázu len na čítanie.
 - **Filtre Fuelio na telefóne** - Stránka `/m/fuelio` ukazuje uložené filtre a tlačidlom Upraviť ich zmeníte: Min. km, prestávku, vzdialenosť a voľné spárovanie. Telefón a PC majú jedny spoločné hodnoty.
 
 ### Zmenené
+- **Jedno pole miesta v dialógu Pridať na stránke Fuelio** - Začiatok aj koniec jazdy majú jedno textové pole so zoznamom miest, najbližšie prvé. Miesto do 300 m od bodu GPS pole vyplní. Inak je pole prázdne. Známy názov (aj bez diakritiky alebo inou veľkosťou písmen) je to miesto, iný text vytvorí nové miesto a pole ukáže "nové miesto".
 - **Stav tachometra v zozname jázd na telefóne** - Karta jazdy ukazuje stav tachometra sivou farbou pod najazdenými km, len ako číslo. Riadok pod trasou ukazuje len účel jazdy.
 
 ### Opravené

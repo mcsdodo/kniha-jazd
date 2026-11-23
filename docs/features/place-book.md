@@ -49,8 +49,8 @@ Three things read the book:
 Two flows outside the Miesta tab also create a place (Task 93). In both, the user types
 the name, and the position comes from a GPS point or a tapped address result:
 
-- **Fuelio Pridať** (the PC dialog and the phone page `/m/fuelio`). "+ Nové miesto tu"
-  creates the place at the GPS start or the GPS end of the drive, with source `manual`.
+- **Fuelio Pridať** (the PC dialog and the phone page `/m/fuelio`). A new name in the
+  place field (PC) or "+ Nové miesto tu" (phone) creates the place at the GPS start or the GPS end of the drive, with source `manual`.
   The place is created in the same command as the trip. If the trip insert fails, the
   place is deleted. See [fuelio.md](./fuelio.md).
 - **Manual trip on the phone** (`/m/nova`). "+ Nové miesto" takes the position from

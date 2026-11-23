@@ -56,10 +56,12 @@
    (the same one as on `/mapa`).
 8. **Pridať** (missing row, and a loose row next to "Prepísať": a loose match can be a
    different drive, for example the drive back after a trip). A popup proposes the origin and destination (the nearest
-   places to the GPS start and end, with their distance), the GPS times and km. A place
-   within 300 m of the GPS point is selected. Without such a place, the dialog does not
-   guess: the end opens on **+ Nové miesto tu** with a name field. This option is always
-   in the list, also when a place is selected. The user types a name, and the new place
+   places to the GPS start and end, with their distance), the GPS times and km. Each end
+   is one text field with a list of places, nearest first (task 97). A place within 300 m
+   of the GPS point fills the field. Without such a place, the dialog does not guess: the
+   field is empty. Text that is a known place name (any case, with or without
+   diacritics, `find_place`) is that place. Other text is a new place: the field shows
+   "nové miesto", and the list offers **+ Vytvoriť nové miesto "..."**. The new place
    gets the GPS start (origin) or the GPS end (destination). The user types the
    purpose and saves. A new trip that moves later odometers shows the insert cascade
    confirmation.
@@ -220,7 +222,8 @@ Dropbox --sync_fuelio_dropbox--> <DATA_DIR>/fuelio/route-*.data
 | [fuelio/dropbox.rs](../../src-tauri/core/src/fuelio/dropbox.rs) | `DropboxConfig::from_env`, `sync_year` |
 | [commands_internal/fuelio_cmd.rs](../../src-tauri/core/src/commands_internal/fuelio_cmd.rs) | The commands, `require_fuelio_internal` |
 | [src/routes/fuelio/+page.svelte](../../src/routes/fuelio/+page.svelte) | Page, icon snippet, legend |
-| [FuelioAddModal.svelte](../../src/lib/components/FuelioAddModal.svelte) | The Pridať dialog: the backend preselect, the "+ Nové miesto tu" option |
+| [FuelioAddModal.svelte](../../src/lib/components/FuelioAddModal.svelte) | The Pridať dialog: the backend preselect; resolves the text of each end at submit |
+| [FuelioPlaceField.svelte](../../src/lib/components/FuelioPlaceField.svelte) | One end of the Pridať dialog: the text field, the place list, the "nové miesto" mark |
 | [src/routes/m/fuelio/+page.svelte](../../src/routes/m/fuelio/+page.svelte) | The phone list and add panel, see [mobile.md](./mobile.md) |
 | [migrations/2026-10-08-100000_fuelio_ignored_drives](../../src-tauri/core/migrations/2026-10-08-100000_fuelio_ignored_drives/up.sql) | The ignored drives, per vehicle (FK with `ON DELETE CASCADE`) |
 | [tests/integration/fixtures/fuelio-drives.mjs](../../tests/integration/fixtures/fuelio-drives.mjs) | Writes three drives of the current year for the env suite |
@@ -260,8 +263,8 @@ Dropbox --sync_fuelio_dropbox--> <DATA_DIR>/fuelio/route-*.data
 - **Why does the default view hide ignored rows?** The list must get shorter as the user
   works through it. The "Ignorované" pill shows them, so an ignore can be undone.
 - **Why 300 m for the preselect?** In a city, the 2 km of the matcher covers many
-  addresses, and a wrong preselect is worse than a name field. "+ Nové miesto tu" stays
-  available, because a place within 300 m can still be the wrong address. See
+  addresses, and a wrong preselect is worse than an empty field. A new place stays
+  available (type a new name), because a place within 300 m can still be the wrong address. See
   [BIZ-031](../../DECISIONS.md#biz-031-a-new-trip-preselects-a-place-only-within-300-m-and-a-new-place-is-always-offered).
 - **Why whole minutes and whole km?** The logbook stores both that way; the GPS
   precision does not survive the save anyway, and a whole-km distance follows ADR-054.

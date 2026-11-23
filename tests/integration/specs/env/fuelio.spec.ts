@@ -153,8 +153,13 @@ describe('Fuelio page (Dropbox configured)', () => {
     await waitForRows(2, 'after the second join');
     await clickLast('fuelio-add');
     await $('[data-testid="fuelio-add-modal"]').waitForDisplayed({ timeout: 5000 });
-    await $('[data-testid="fuelio-add-destination-new-name"]').waitForDisplayed({ timeout: 5000 });
-    await $('[data-testid="fuelio-add-destination-new-name"]').setValue('Joined end');
+    // No place near the GPS end: the field is empty. Text that is no known
+    // name is a new place, and the list offers to create it (Task 97).
+    const destination = $('[data-testid="fuelio-add-destination"]');
+    await destination.waitForDisplayed({ timeout: 5000 });
+    await destination.setValue('Joined end');
+    await $('[data-testid="fuelio-add-destination-create"]').waitForDisplayed({ timeout: 5000 });
+    await $('[data-testid="fuelio-add-destination-new-mark"]').waitForDisplayed({ timeout: 5000 });
     await $('[data-testid="fuelio-add-purpose"]').setValue('joined');
     await $('[data-testid="fuelio-add-continue"]').click();
 
@@ -324,17 +329,14 @@ describe('Fuelio page (Dropbox configured)', () => {
       await $('[data-testid="fuelio-add-modal"]').waitForDisplayed({ timeout: 5000 });
       // The fragment starts at "Fuelio North": the origin is preselected.
       await browser.waitUntil(
-        async () => {
-          const v = await $('[data-testid="fuelio-add-origin"]').getValue();
-          return v !== '' && v !== '__new__';
-        },
+        async () => (await $('[data-testid="fuelio-add-origin"]').getValue()) === 'Fuelio North',
         { timeout: 5000, timeoutMsg: 'the add preview did not preselect a place' }
       );
       // It ends about 3 km from any place, outside the 300 m preselect radius
-      // (Task 93): no guess, the dialog asks for the name of a new place.
-      await $('[data-testid="fuelio-add-destination-new-name"]').waitForDisplayed({ timeout: 5000 });
-      expect(await $('[data-testid="fuelio-add-destination"]').getValue()).toBe('__new__');
-      await $('[data-testid="fuelio-add-destination-new-name"]').setValue('Fragment end');
+      // (Task 93): no guess, the field is empty and asks for a new place.
+      await $('[data-testid="fuelio-add-destination-no-nearby"]').waitForDisplayed({ timeout: 5000 });
+      expect(await $('[data-testid="fuelio-add-destination"]').getValue()).toBe('');
+      await $('[data-testid="fuelio-add-destination"]').setValue('Fragment end');
       await $('[data-testid="fuelio-add-purpose"]').setValue('fragment');
       await $('[data-testid="fuelio-add-continue"]').click();
 
@@ -395,7 +397,7 @@ describe('Fuelio page (Dropbox configured)', () => {
       await $('[data-testid="fuelio-add"]').click();
       await $('[data-testid="fuelio-add-modal"]').waitForDisplayed({ timeout: 5000 });
       await browser.waitUntil(
-        async () => (await $('[data-testid="fuelio-add-origin"]').getValue()) !== '',
+        async () => (await $('[data-testid="fuelio-add-origin"]').getValue()) === 'Fuelio South',
         { timeout: 5000, timeoutMsg: 'the add preview did not preselect a place' }
       );
       // The purpose offers the purposes of earlier trips, as in the logbook grid
@@ -424,6 +426,44 @@ describe('Fuelio page (Dropbox configured)', () => {
       expect(added.distanceKm).toBe(22);
       expect(added.purpose).toBe('later');
       expect(later.odometer).toBe(10044);
+      expect(await $('.toast-error').isExisting()).toBe(false);
+    });
+
+    it('takes a known place name typed in another form, not a new place', async () => {
+      await seedPlaces();
+      await reload();
+      await waitForRows(2, 'both 22 km drives missing');
+
+      await $('[data-testid="fuelio-add"]').click();
+      await $('[data-testid="fuelio-add-modal"]').waitForDisplayed({ timeout: 5000 });
+      const destination = $('[data-testid="fuelio-add-destination"]');
+      await browser.waitUntil(async () => (await destination.getValue()) === 'Fuelio North', {
+        timeout: 5000,
+        timeoutMsg: 'the add preview did not preselect a place',
+      });
+
+      // Another case: the backend fold (find_place) matches the known place.
+      // The list shows it and offers no new place.
+      await destination.setValue('fuelio NORTH');
+      const option = $('[data-testid="fuelio-add-destination-option"]');
+      await browser.waitUntil(async () => (await option.isDisplayed()) && (await option.getText()).includes('Fuelio North'), {
+        timeout: 5000,
+        timeoutMsg: 'the typed name did not show its known place',
+      });
+      expect(await $('[data-testid="fuelio-add-destination-create"]').isExisting()).toBe(false);
+      expect(await $('[data-testid="fuelio-add-destination-new-mark"]').isExisting()).toBe(false);
+
+      await $('[data-testid="fuelio-add-purpose"]').setValue('fold');
+      await $('[data-testid="fuelio-add-continue"]').click();
+      await browser.waitUntil(async () => (await statusCount('matched')) === 1, {
+        timeout: 5000,
+        timeoutMsg: 'the added drive is not matched to its new trip',
+      });
+
+      const grid = await getTripGridData(vehicleId, YEAR);
+      expect(grid.trips.map((t) => t.destination)).toEqual(['Fuelio North']);
+      const places = await rpc<unknown[]>('list_places');
+      expect(places.length).toBe(2);
       expect(await $('.toast-error').isExisting()).toBe(false);
     });
   });
