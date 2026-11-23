@@ -232,7 +232,7 @@ header.page p { margin: 4px 0; color: var(--page-muted); max-width: 80ch; }
   <h1>Kniha jázd on the PC: Fuelio (current state)</h1>
   <p>The Fuelio cross-check at <code>/fuelio</code>: the GPS drives of the Fuelio app next to the logbook trips, as it works on <code>main</code>. The example data is invented. The UI text is Slovak, as in the app. The notes under each frame say what the screen does.</p>
   <p>The source is <code>docs/mockups/fuelio.html</code> in the repo. Its git history shows when the page changed.</p>
-  <p>An orange dashed box with the tag "Návrh (task NN)" marks a proposal that is not built yet. Open proposal: task 97, one place field in the "Pridať" dialog (frames 5 and 5b).</p>
+  <p>An orange dashed box with the tag "Návrh (task NN)" marks a proposal that is not built yet. This page has no open proposal.</p>
   <div class="pagenav" id="pagenav">
     <a href="jazdy.html">Jazdy</a><a href="doklady.html">Doklady</a>
     <a href="index.html">All mockups</a>
@@ -450,16 +450,16 @@ header.page p { margin: 4px 0; color: var(--page-muted); max-width: 80ch; }
           <tr><td class="lab">Začiatok</td><td><b>3.11.2026 19:12</b></td></tr>
           <tr><td class="lab">Koniec</td><td><b>3.11.2026 19:58</b></td></tr>
           <tr><td class="lab">Vzdialenosť</td><td><b>42 km</b> <span class="muted small">GPS 41.7 km, zaokrúhlené na celé km</span></td></tr>
-          <tr><td class="lab">Odkiaľ</td><td><div class="open"><span class="tag">Návrh (task 97)</span>
-            <div class="pf" style="margin-top:4px"><span class="txt-in"><span>Kancelária</span><span class="dist">0.12 km od GPS bodu</span></span></div>
-          </div></td></tr>
-          <tr><td class="lab">Kam</td><td><div class="open"><span class="tag">Návrh (task 97)</span>
-            <div class="pf" style="margin-top:4px">
+          <tr><td class="lab">Odkiaľ</td><td>
+            <div class="pf"><span class="txt-in"><span>Kancelária</span><span class="dist">0.12 km od GPS bodu</span></span></div>
+          </td></tr>
+          <tr><td class="lab">Kam</td><td>
+            <div class="pf">
               <span class="txt-in focus"><span>Parkovisko<span class="muted">|</span></span><span class="newb">nové miesto</span></span>
-              <div class="optlist"><div class="cr on"><span>+ Vytvoriť nové miesto "Parkovisko"</span></div></div>
+              <div class="optlist"><div class="cr"><span>+ Vytvoriť nové miesto "Parkovisko"</span></div></div>
             </div>
             <span class="muted small" style="display:block;margin-top:3px">Žiadne známe miesto nablízku. Nové miesto sa vytvorí v bode konca GPS jazdy.</span>
-          </div></td></tr>
+          </td></tr>
           <tr><td class="lab">Účel</td><td><span class="txt-in" style="margin-top:0">služobná cesta</span></td></tr>
           <tr><td colspan="2"><span class="chk"><span class="box on"></span>Uložiť GPS stopu ako trasu jazdy</span></td></tr>
         </table>
@@ -469,21 +469,21 @@ header.page p { margin: 4px 0; color: var(--page-muted); max-width: 80ch; }
     <ul class="ann">
       <li>The dialog opens from "Pridať" on a missing row or a loose row. It shows "Načítavam..." until <code>get_fuelio_add_preview</code> answers.</li>
       <li>"Začiatok" and "Koniec" are the GPS start and end in whole minutes. "Vzdialenosť" is the GPS km rounded to whole km. These three are not editable.</li>
-      <li class="prop"><b>"Odkiaľ" and "Kam" are each one text field with a list of suggestions. The select, the option "+ Nové miesto tu" and the second input "Názov nového miesta" go away.</b> Frame 5b draws the states of the field.</li>
+      <li>"Odkiaľ" and "Kam" are each one text field with a list of places (<code>FuelioPlaceField.svelte</code>). Frame 5b draws the states of the field.</li>
       <li>"Odkiaľ" lists every place with coordinates, nearest to the GPS start first. "Kam" lists them nearest to the GPS end first. The distance shows with 2 decimals below 10 km.</li>
-      <li class="prop"><b>The backend preselects a known place near the GPS point (BIZ-031): the field opens with its name and its distance.</b> If no place is that near, the field opens empty, with the line "Žiadne známe miesto nablízku.".</li>
-      <li class="prop"><b>Text that is not the name of a known place is a new place.</b> The field shows the mark "nové miesto" and the line "Nové miesto sa vytvorí v bode konca GPS jazdy." (or "... začiatku ..." for "Odkiaľ"). The new place gets the GPS start point (origin) or the GPS end point (destination).</li>
+      <li>The backend preselects a known place near the GPS point (BIZ-031): the field opens with its name and its distance. If no place is that near, the field opens empty, with the line "Žiadne známe miesto nablízku.".</li>
+      <li>Text that is not the name of a known place is a new place. The field shows the mark "nové miesto" and the line "Nové miesto sa vytvorí v bode konca GPS jazdy." (or "... začiatku ..." for "Odkiaľ"). The new place gets the GPS start point (origin) or the GPS end point (destination).</li>
       <li>The backend refuses a name that the place book already has, and the same new name on both ends.</li>
       <li>"Účel" suggests the purposes of the vehicle, as the trip grid does.</li>
       <li>"Uložiť GPS stopu ako trasu jazdy" (checked at open) saves the full GPS track as the stored route of the new trip.</li>
       <li>If no place has coordinates, the red line "Žiadne miesto nemá polohu. Doplňte polohu na stránke Miesta." shows under the table.</li>
-      <li>"Pridať jazdu" is disabled until both ends have a place or a new name (a field that is not empty). It asks for a dry run (<code>add_fuelio_trip</code>, <code>dryRun: true</code>). If later trips move, the insert cascade opens (frame 6). If not, the trip saves at once through the normal insert.</li>
+      <li>"Pridať jazdu" is disabled until both ends have a place or a new name (a field that is not empty). It reads the text of each end once: an exact name from the list, else <code>find_place</code>, else a new name. Then it asks for a dry run (<code>add_fuelio_trip</code>, <code>dryRun: true</code>), and the save sends the same ends. If later trips move, the insert cascade opens (frame 6). If not, the trip saves at once through the normal insert.</li>
     </ul>
   </section>
 
-  <!-- 5b. Proposal task 97: the place field states -->
+  <!-- 5b. The place field states (task 97) -->
   <section class="frame" data-board="fuelio-pridat-place-field-states">
-    <h2><span class="tag prop">Návrh (task 97)</span> 5b. "Pridať": the states of the field "Kam"</h2>
+    <h2>5b. "Pridať": the states of the field "Kam"</h2>
     <div class="window">
       <div class="pfgrid fm">
         <div class="cell"><h5>A. Focus, the field is empty</h5>
@@ -504,7 +504,7 @@ header.page p { margin: 4px 0; color: var(--page-muted); max-width: 80ch; }
           <div class="pf">
             <span class="txt-in focus"><span>sk<span class="muted">|</span></span><span class="newb">nové miesto</span></span>
             <div class="optlist">
-              <div class="on"><span>Sklad</span><span class="dist">1.90 km</span></div>
+              <div><span>Sklad</span><span class="dist">1.90 km</span></div>
               <div class="cr"><span>+ Vytvoriť nové miesto "sk"</span></div>
             </div>
           </div>
@@ -518,9 +518,9 @@ header.page p { margin: 4px 0; color: var(--page-muted); max-width: 80ch; }
         <div class="cell"><h5>D. Typed text is a known name in another form</h5>
           <span class="lab">Kam</span>
           <div class="pf">
-            <span class="txt-in focus"><span>kancelaria<span class="muted">|</span></span></span>
+            <span class="txt-in focus"><span>kancelaria<span class="muted">|</span></span><span class="dist">24 km od GPS bodu</span></span>
             <div class="optlist">
-              <div class="on"><span>Kancelária</span><span class="dist">24 km</span></div>
+              <div><span>Kancelária</span><span class="dist">24 km</span></div>
             </div>
           </div>
           <span class="muted small" style="display:block;margin-top:3px">No "+ Vytvoriť" row: the place exists.</span>
@@ -528,13 +528,11 @@ header.page p { margin: 4px 0; color: var(--page-muted); max-width: 80ch; }
       </div>
     </div>
     <ul class="ann">
-      <li class="prop"><b>A: on focus with an empty field, the list shows the places nearest to the GPS point, with the distance.</b> The list has no "+ Vytvoriť" row, because a new place needs a name.</li>
-      <li class="prop"><b>B: the typed text filters the list (part of the name, any case).</b> The last row is "+ Vytvoriť nové miesto "&lt;text&gt;"". Arrow keys and Enter pick a row. Until you pick a known place, the text is a new place, and the field shows "nové miesto".</li>
-      <li class="prop"><b>C: a chosen known place shows its name and its distance from the GPS point.</b> "nové miesto" does not show.</li>
-      <li class="prop"><b>D: text that is a known name in another case or without diacritics is that place, not a new one.</b> The Rust command <code>find_place</code> does this match (ADR-008), as in the trip grid. The list has no "+ Vytvoriť" row.</li>
-      <li class="prop"><b>Tab or a click out of the field keeps the text.</b> A known name stays the known place (C). Other text stays a new place (B).</li>
-      <li class="prop">New labels in <code>src/lib/i18n/sk/index.ts</code>: <b>"Vyberte miesto alebo zadajte nový názov"</b>, <b>"+ Vytvoriť nové miesto "{name}""</b>, <b>"nové miesto"</b>, and <b>"Žiadne známe miesto nablízku."</b> for <code>fuelio.add.noNearby</code>. <code>fuelio.add.newPlace</code> and <code>fuelio.add.newPlaceName</code> go away.</li>
-      <li class="prop">The RPC payload does not change: a known place sends <code>placeId</code>, a new place sends <code>newPlaceName</code>.</li>
+      <li>A: on focus, the list shows every place, nearest to the GPS point first, with the distance. A click into the field opens the list again. The list has no "+ Vytvoriť" row, because a new place needs a name.</li>
+      <li>B: typed text filters the list (part of the name, any case). The last row is "+ Vytvoriť nové miesto "&lt;text&gt;"". Until the text is a known name, it is a new place, and the field shows "nové miesto".</li>
+      <li>C: a known place shows its name and its distance from the GPS point. A known place without coordinates shows no distance.</li>
+      <li>D: text that is a known name in another case or without diacritics is that place, not a new one. The Rust command <code>find_place</code> does this match (ADR-008), as in the trip grid. The place goes first in the list, and the list has no "+ Vytvoriť" row.</li>
+      <li>Arrow keys move in the list, and Enter picks the row. A click on a row picks it. Escape closes the list, and a second Escape closes the dialog. Tab or a click out of the field keeps the text.</li>
     </ul>
   </section>
 
@@ -622,7 +620,7 @@ header.page p { margin: 4px 0; color: var(--page-muted); max-width: 80ch; }
       <li>The dialogs show the backend errors raw, and they are English in the Slovak UI. Example: the order guard "The GPS start would move the trip past another trip; ..." (<code>src-tauri/core/src/commands_internal/fuelio_cmd.rs:308-311</code>, shown by <code>src/lib/components/FuelioOverwriteModal.svelte:168</code>).</li>
       <li>The page and the dialogs have no read-only handling. The dry runs skip the read-only guard (<code>fuelio_cmd.rs:377-380</code> for the overwrite, <code>fuelio_cmd.rs:592-594</code> for the add), so a dialog and the cascade can open, and the final write then fails with an error.</li>
       <li>The red text "Žiadne miesto nemá polohu. ..." shows when no place has coordinates, but "+ Nové miesto tu" still lets the user add the trip with two new places (<code>src/lib/components/FuelioAddModal.svelte:258-260</code> against <code>:190-203</code>).</li>
-      <li>The phone page has the same split into a select and a name field (<code>src/lib/components/mobile/MobilePlacePicker.svelte:246-253</code>, frame <code>mobil-add-from-fuelio</code> in <code>mobil.html</code>). Task 97 changes the PC dialog only.</li>
+      <li>The phone page has the same split into a select and a name field (<code>src/lib/components/mobile/MobilePlacePicker.svelte:246-253</code>, frame <code>mobil-add-from-fuelio</code> in <code>mobil.html</code>). The PC dialog has one field since task 97.</li>
       <li>A partial-GPS row that starts mid-trip has no minutes value, so the "Rozdiel" cell starts with an empty line (<code>src/routes/fuelio/+page.svelte:511-513</code>).</li>
     </ul>
   </section>
