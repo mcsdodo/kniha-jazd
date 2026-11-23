@@ -160,7 +160,9 @@ jobs:
     name: Integration Tests (Docker/Chrome - Shard ${{ matrix.shard }} of 6)
     needs: [check-changes, integration-build-docker]
     if: needs.check-changes.outputs.run_tests == 'true'
-    runs-on: ubuntu-latest
+    # Pinned: on ubuntu-26.04 (ubuntu-latest since 2026-11) every wdio worker dies
+    # under the @wdio/xvfb wrapper with "write EINVAL" (run 44138962574).
+    runs-on: ubuntu-24.04
     strategy:
       fail-fast: false
       matrix:
@@ -251,7 +253,9 @@ jobs:
     name: Integration Tests (Docker/Chrome - Env-Pinned)
     needs: [check-changes, integration-build-docker]
     if: needs.check-changes.outputs.run_tests == 'true'
-    runs-on: ubuntu-latest
+    # Pinned: on ubuntu-26.04 (ubuntu-latest since 2026-11) every wdio worker dies
+    # under the @wdio/xvfb wrapper with "write EINVAL" (run 44138962574).
+    runs-on: ubuntu-24.04
 
     steps:
       - name: Checkout
