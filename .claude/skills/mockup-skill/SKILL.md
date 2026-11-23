@@ -1,6 +1,6 @@
 ---
 name: mockup
-description: Use before planning or coding a change that adds or changes a screen, a dialog, a column or a UI state - draws the change in the page's mockup file in docs/mockups/ first, generates and publishes the claude.ai mockups canvas for review, gets the user's approval, and after the merge turns the proposal into the current state. Also use for "update the mockup", "draw it first", "show me how it would look", or when /verify lists mockup drift.
+description: Use when you brainstorm, propose, plan or code a change that adds or changes a screen, a dialog, a column or a UI state - draws the change in the page's mockup file in docs/mockups/ first, generates and publishes the claude.ai mockups canvas for review, gets the user's approval, and after the merge turns the proposal into the current state. Also use for "update the mockup", "draw it first", "show me how it would look", or when /verify lists mockup drift.
 ---
 
 # Mockup first
