@@ -19,6 +19,15 @@ databázu len na čítanie.
 - **Premenné prostredia:** bez zmeny
 - **Migrácie databázy:** žiadne
 - **Strata údajov:** žiadna
+- **Image, volume, port:** bez zmeny
+
+## [2.9.0] - 2026-11-23
+
+### Pokyny k aktualizácii
+- **Potrebný zásah:** nie
+- **Premenné prostredia:** bez zmeny
+- **Migrácie databázy:** žiadne
+- **Strata údajov:** žiadna
 - **Image, volume, port:** image, volume a port bez zmeny. Príklad `docker-compose.web.yml` odovzdá kontajneru `SYGIC_API_KEY` a `SYGIC_REFERER` z `.env` (prázdna hodnota znamená nenastavená). Server obe premenné poznal už predtým.
 
 ### Pridané
